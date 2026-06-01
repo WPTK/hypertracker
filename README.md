@@ -141,6 +141,16 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000      # add --root-path /board 
 python -m bot.bot
 ```
 
+### 5. Put it on gilead
+
+- `deploy/hyperfixed-web.service` and `deploy/hyperfixed-bot.service` are systemd
+  units — adjust the paths/user, drop them in `/etc/systemd/system/`, then
+  `systemctl enable --now hyperfixed-web hyperfixed-bot`.
+- `deploy/nginx.conf.example` has two patterns: a dedicated hostname
+  (`board.adsb.cc`, simplest) or a `/board` sub-path on your existing site. For a
+  sub-path, set `ROOT_PATH=/board` and run uvicorn with `--root-path /board`.
+- Equivalently, point a Cloudflare Tunnel ingress rule at `http://127.0.0.1:8000`.
+
 ---
 
 ## Design notes
