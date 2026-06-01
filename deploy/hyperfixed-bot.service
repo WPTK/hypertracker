@@ -1,0 +1,17 @@
+# /etc/systemd/system/hyperfixed-bot.service
+# Runs the Discord bot. Starts after the web service so the backend is reachable.
+[Unit]
+Description=Hyperfixed Flight Tracker (Discord bot)
+After=network-online.target hyperfixed-web.service
+Wants=network-online.target
+
+[Service]
+User=bill
+WorkingDirectory=/opt/hyperfixed-flight-tracker
+EnvironmentFile=/opt/hyperfixed-flight-tracker/.env
+ExecStart=/opt/hyperfixed-flight-tracker/.venv/bin/python -m bot.bot
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

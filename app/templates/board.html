@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base href="{{ base_path }}/">
+<title>Hyperfixed Flight Tracker · adsb.cc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="static/styles.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a href="." class="site-logo">adsb.cc<span>/ board</span></a>
+    <div class="header-right">
+      <span class="clock" id="zclock">--:--:-- Z</span>
+      {% if user %}
+        <span class="who-mini">@{{ user.name }}</span>
+        <a class="btn btn--sm" href="logout">Log out</a>
+      {% elif not gated %}
+        <a class="btn btn--sm" href="login">Log in</a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="pagehead">
+    <h1>Hyperfixed <span style="color:var(--accent)">Flight Tracker</span></h1>
+    <p class="sub">Who in the server is going where, and how to watch them do it.</p>
+  </div>
+
+  {% if gated %}
+    <div class="gate">
+      <p>This board is for members of the server.</p>
+      <a class="btn btn--accent" href="login">Log in with Discord</a>
+      <p class="gate-note" id="gateNote"></p>
+    </div>
+  {% else %}
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View">
+        <button id="bBoard" class="on">Board</button>
+        <button id="bMap">Map</button>
+      </div>
+      <div class="filterbar" id="filterbar"><span id="filterText"></span><span class="clear" id="clearBtn">clear</span></div>
+      {% if user %}<button class="btn btn--accent btn--sm addbtn" id="openAdd">+ Add flight</button>{% endif %}
+      <span class="hint">Tap any airport code or flight number</span>
+    </div>
+
+    <div id="board"><p class="empty" id="emptyMsg">Loading the board…</p></div>
+
+    <div class="mapcard" id="mapcard">
+      <div class="datechips" id="datechips"></div>
+      <div id="map"></div>
+      <div class="maplegend">
+        <span><span class="dot" style="background:var(--accent-warm)"></span>airborne now</span>
+        <span><span class="dot" style="background:var(--accent)"></span>selected</span>
+        <span><span class="dot" style="background:var(--accent-teal)"></span>scheduled</span>
+      </div>
+    </div>
+  {% endif %}
+</main>
+
+<footer class="site-footer">
+  <p>© 2026 adsb.cc · hand-built, self-hosted, and frankly over-engineered for a Discord</p>
+</footer>
+
+{% if user %}
+<div class="modal-bg" id="addModal" hidden>
+  <div class="modal">
+    <div class="modal-head"><h2>Add a trip</h2><button class="modal-x" id="closeAdd" aria-label="Close">&times;</button></div>
+    <p class="modal-sub">Enter a flight number and the departure date — we resolve the airports, aircraft, and times automatically.</p>
+    <label class="man-mode"><input type="checkbox" id="manualMode"> Enter airports manually (no flight numbers)</label>
+    <div class="dir-block">
+      <h3>Outbound</h3>
+      <div id="outLegs"></div>
+      <button class="btn btn--sm addleg" data-dir="out">+ Add connection</button>
+    </div>
+    <div class="dir-block" id="retBlock" hidden>
+      <h3>Return</h3>
+      <div id="retLegs"></div>
+      <button class="btn btn--sm addleg" data-dir="ret">+ Add connection</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn--sm" id="toggleRet">+ Add return</button>
+      <div class="spacer"></div>
+      <button class="btn" id="cancelAdd">Cancel</button>
+      <button class="btn btn--accent" id="submitAdd">Save trip</button>
+    </div>
+    <p class="modal-err" id="addErr"></p>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  window.__APP__ = {
+    user: {% if user %}{ id: {{ user.id|tojson }}, name: {{ user.name|tojson }} }{% else %}null{% endif %},
+    gated: {{ 'true' if gated else 'false' }}
+  };
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+# Hyperfixed Flight Tracker — nginx examples
+# The app runs on 127.0.0.1:8000 (uvicorn). Pick ONE of the two patterns below.
+# If you front everything with a Cloudflare Tunnel, you can equally point a tunnel
+# ingress rule at http://127.0.0.1:8000 instead of using nginx.
+
+# ===========================================================================
+# PATTERN A — dedicated hostname (simplest). Serve at the root of board.adsb.cc
+# Set ROOT_PATH= (empty) in .env and run uvicorn WITHOUT --root-path.
+# ===========================================================================
+server {
+    listen 80;
+    server_name board.adsb.cc;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+}
+
+# ===========================================================================
+# PATTERN B — sub-path on an existing site:  https://adsb.cc/board
+# Set ROOT_PATH=/board in .env and run uvicorn WITH --root-path /board.
+# The trailing-slash rewrite + proxy_pass with a trailing slash strips the
+# /board prefix before it reaches the app.
+# ===========================================================================
+# server {
+#     listen 80;
+#     server_name adsb.cc;
+#
+#     # ... your existing adsb.cc locations ...
+#
+#     location = /board { return 301 /board/; }
+#
+#     location /board/ {
+#         proxy_pass         http://127.0.0.1:8000/;   # trailing slash strips /board
+#         proxy_http_version 1.1;
+#         proxy_set_header   Host              $host;
+#         proxy_set_header   X-Real-IP         $remote_addr;
+#         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header   X-Forwarded-Proto $scheme;
+#     }
+# }
