@@ -63,7 +63,9 @@ def _iata(movement: dict) -> str | None:
 def pick(flights: list, leg: dict) -> dict | None:
     """The flight on this leg's route; a lone result is taken as is."""
     for f in flights:
-        if _iata(f.get("departure") or {}) == leg.get("from_iata") and _iata(f.get("arrival") or {}) == leg.get("to_iata"):
+        if _iata(f.get("departure") or {}) == leg.get("from_iata") and _iata(
+            f.get("arrival") or {}
+        ) == leg.get("to_iata"):
             return f
     return flights[0] if len(flights) == 1 else None
 
