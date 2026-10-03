@@ -105,6 +105,7 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
 .ap-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);background:rgba(20,20,20,.85);border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap}
 
+[hidden]{display:none !important}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem;z-index:200;overflow-y:auto}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:100%;max-width:560px;padding:1.5rem}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem}
