@@ -105,6 +105,8 @@ async def security_headers(request: Request, call_next):
     h = resp.headers
     h.setdefault("Content-Security-Policy", CSP)
     h.setdefault("X-Content-Type-Options", "nosniff")
+    if "/static/" in request.url.path:
+        h.setdefault("Cache-Control", "no-cache")  # revalidate (ETag) so a deploy is never half-cached
     h.setdefault("X-Frame-Options", "DENY")
     h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     h.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=(), payment=(), usb=()")

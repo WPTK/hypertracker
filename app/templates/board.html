@@ -38,10 +38,8 @@
   <div class="page-head">
     <div>
       <h1>Hypertracker</h1>
-      <p class="page-head__lede">Who is in the air, who is about to be, and who has landed.</p>
     </div>
     <div class="account">
-      <label class="tzpick"><span class="sr-only">Time zone</span><select id="tzPick" aria-label="Time zone"></select></label>
       {% if user %}
         <span class="account__name">{{ user.name }}</span>{% if is_admin %}<span class="account__admin">admin</span>{% endif %}
         <form method="post" action="logout"><button type="submit" class="btn btn--sm">Log out</button></form>

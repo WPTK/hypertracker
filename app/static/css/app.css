@@ -12,12 +12,10 @@
   margin: var(--space-md) 0 var(--space-xl);
 }
 .page-head h1 { margin-bottom: 4px; }
-.page-head__lede { margin: 0; color: var(--text-1); font-size: 17px; max-width: 46ch; }
 .account { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); font-size: 14px; color: var(--text-1); }
 .account form { margin: 0; }
 .account__name { color: var(--text-0); font-weight: 600; }
 .account__admin { border: 1px solid var(--line); border-radius: 999px; padding: 0 10px; font-size: 13px; color: var(--text-1); }
-.tzpick select { font: inherit; font-size: 13px; color: var(--text-1); background: transparent; border: 1px solid var(--border, currentColor); border-radius: 6px; padding: 4px 6px; max-width: 220px; }
 
 /* ===== Notices, gate ===== */
 .notice {

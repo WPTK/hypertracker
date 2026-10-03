@@ -71,37 +71,9 @@ const themeToggle = $("themeToggle");
 if (themeToggle) themeToggle.addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
 syncThemeUi();
 
-/* ---------- time zone: "airport" (each leg in its own local time) or an IANA zone ---------- */
-const TZ_KEY = "ht-tz";
+/* ---------- time zone: every time is shown in the viewer's own zone ---------- */
 let deviceTz = "UTC";
 try { deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { /* keep UTC */ }
-function validTz(tz) {
-  if (tz === "airport") return true;
-  try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch (_) { return false; }
-}
-let tzMode = deviceTz;
-try { const s = localStorage.getItem(TZ_KEY); if (s && validTz(s)) tzMode = s; } catch (_) { /* storage blocked */ }
-function setupTzPicker() {
-  const sel = $("tzPick");
-  if (!sel) return;
-  const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; return o; };
-  sel.append(opt("airport", "Airport local time"), opt(deviceTz, `My time (${deviceTz.replace(/_/g, " ")})`));
-  if (deviceTz !== "UTC") sel.append(opt("UTC", "UTC"));
-  let zones = [];
-  try { zones = Intl.supportedValuesOf("timeZone"); } catch (_) { /* older browser: the three above */ }
-  const grp = document.createElement("optgroup");
-  grp.label = "All zones";
-  for (const z of zones) if (z !== deviceTz && z !== "UTC") grp.append(opt(z, z.replace(/_/g, " ")));
-  if (grp.children.length) sel.append(grp);
-  sel.value = tzMode;
-  if (sel.value !== tzMode) { tzMode = deviceTz; sel.value = tzMode; }
-  sel.addEventListener("change", () => {
-    tzMode = sel.value;
-    try { localStorage.setItem(TZ_KEY, tzMode); } catch (_) { /* storage blocked */ }
-    refreshTimes();
-  });
-}
-setupTzPicker();
 
 /* ---------- auth messages ---------- */
 const AUTH_MESSAGES = {
@@ -528,20 +500,18 @@ function refreshTimes() {
   const now = nowMs();
   for (const r of legRecs) {
     const { leg } = r;
-    const airport = tzMode === "airport";
-    const show = (st) => (!st ? st : airport ? { ...st, zone: st.offMin == null ? "" : "local" }
-      : st.offMin == null ? st : fmtIn(st.ms, tzMode));
+    const show = (st) => (st && st.offMin != null ? fmtIn(st.ms, deviceTz) : st);
     const dep = show(r.dep), arr = show(r.arr);
-    const today = airport ? todayAt(now, dep ? dep.offMin : null) : fmtIn(now, tzMode).date;
-    const dayStr = !airport && dep && r.dep.offMin != null ? dep.date : r.dateStr;
+    const today = fmtIn(now, deviceTz).date;
+    const dayStr = dep && r.dep.offMin != null ? dep.date : r.dateStr;
     setText(r.dayEl, r.cont ? "Connecting" : (dayLabel(dayStr, today) || "Date not set"));
     r.dayEl.classList.toggle("is-cont", r.cont);
     r.el.classList.toggle("is-continuation", r.cont);
-    setText(r.depEl, dep ? `Departs ${dep.time} ${dep.zone}`.trim() : "Time not set");
+    setText(r.depEl, dep ? `Departs ${dep.time}` : "Time not set");
     if (arr) {
       const sameDay = !dep || arr.date === dep.date;
-      const prefix = sameDay ? "" : dayLabel(arr.date, airport ? todayAt(now, arr.offMin) : today) + " ";
-      setText(r.arrEl, `Arrives ${prefix}${arr.time} ${arr.zone}`.trim());
+      const prefix = sameDay ? "" : dayLabel(arr.date, today) + " ";
+      setText(r.arrEl, `Arrives ${prefix}${arr.time}`);
     } else {
       setText(r.arrEl, leg.manual ? "Arrival time not set" : "Arrival time not known yet");
     }

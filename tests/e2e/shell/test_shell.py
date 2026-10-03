@@ -61,7 +61,7 @@ def test_content_of_legs(make_page, base_url):
     first = page.locator(".leg").first
     txt = first.inner_text()
     assert "DEN" in txt and "JAX" in txt and "Denver to Jacksonville" in txt
-    assert "Arrives" in txt and "UTC-4" in txt and "lands in" in txt
+    assert "Arrives" in txt and "lands in" in txt
     assert "Boeing 737-900" in txt and "6 years old" in txt and "N841DN" in txt
     # FlightAware: only where fa_url exists, accessible name, safe attrs
     fa = page.get_by_role("link", name="FlightAware for DL1200").first

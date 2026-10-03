@@ -50,19 +50,18 @@ export function parseUtc(str) {
 }
 
 const ZONED = new Map();
-/** Wall clock of an instant in an IANA zone: {date, time (24h), zone ("EDT")}. */
+/** Wall clock of an instant in an IANA zone: {date: "YYYY-MM-DD", time: "1:40 PM" (viewer's locale)}. */
 export function fmtIn(ms, tz) {
   let f = ZONED.get(tz);
   if (!f) {
-    f = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz, hourCycle: "h23", hour: "2-digit", minute: "2-digit", timeZoneName: "short",
-      year: "numeric", month: "2-digit", day: "2-digit",
-    });
+    f = {
+      date: new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }),
+      time: new Intl.DateTimeFormat(undefined, { timeZone: tz, hour: "numeric", minute: "2-digit" }),
+    };
     ZONED.set(tz, f);
   }
-  const p = {};
-  for (const x of f.formatToParts(new Date(ms))) p[x.type] = x.value;
-  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, zone: p.timeZoneName, ms };
+  const d = new Date(ms);
+  return { date: f.date.format(d), time: f.time.format(d).replace(/[\u202f\u00a0]/g, " "), ms };
 }
 
 /** "YYYY-MM-DD" of the wall clock at a given UTC offset (minutes) right now. */
