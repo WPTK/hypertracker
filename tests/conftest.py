@@ -2,6 +2,7 @@
 
 Every test gets its own database file and fresh rate-limit state, an offline
 fake resolver, and the real clock unless it patches `app.lifecycle.now`."""
+
 import os
 import sys
 import tempfile
@@ -21,9 +22,10 @@ os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "test.db")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from helpers import seed_airports  # noqa: E402
 
 from app import config, db, jobs, netutil  # noqa: E402
-from helpers import seed_airports  # noqa: E402
+
 
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
@@ -55,17 +57,39 @@ class FakeResolver:
         def ap(code):
             r = db.find_airport(code)
             return r
+
         da, aa = ap(a), ap(b)
         return {
-            "direction": row["direction"], "seq": row["seq"], "date_local": row["date"],
-            "flight_no": row["flight_no"], "callsign": "TST" + row["flight_no"][2:],
-            "dep_icao": da["ident"], "dep_iata": da["iata"], "dep_name": da["name"],
-            "dep_lat": da["lat"], "dep_lon": da["lon"], "dep_local": dep, "dep_utc": dep,
-            "arr_icao": aa["ident"], "arr_iata": aa["iata"], "arr_name": aa["name"],
-            "arr_lat": aa["lat"], "arr_lon": aa["lon"], "arr_local": arr, "arr_utc": arr,
-            "reg": reg, "ac_type": "B738" if reg else None, "ac_model": None, "ac_age": None,
-            "ac_built": None, "resolved": 1, "manual": 0,
-            "status": "ok", "message": "", "candidates": [], "unverified": False,
+            "direction": row["direction"],
+            "seq": row["seq"],
+            "date_local": row["date"],
+            "flight_no": row["flight_no"],
+            "callsign": "TST" + row["flight_no"][2:],
+            "dep_icao": da["ident"],
+            "dep_iata": da["iata"],
+            "dep_name": da["name"],
+            "dep_lat": da["lat"],
+            "dep_lon": da["lon"],
+            "dep_local": dep,
+            "dep_utc": dep,
+            "arr_icao": aa["ident"],
+            "arr_iata": aa["iata"],
+            "arr_name": aa["name"],
+            "arr_lat": aa["lat"],
+            "arr_lon": aa["lon"],
+            "arr_local": arr,
+            "arr_utc": arr,
+            "reg": reg,
+            "ac_type": "B738" if reg else None,
+            "ac_model": None,
+            "ac_age": None,
+            "ac_built": None,
+            "resolved": 1,
+            "manual": 0,
+            "status": "ok",
+            "message": "",
+            "candidates": [],
+            "unverified": False,
         }
 
     async def __call__(self, rows, *, deadline=20.0):
@@ -75,16 +99,33 @@ class FakeResolver:
             fn = row["flight_no"]
             status = self.override.get(fn)
             if status:
-                leg = {"direction": row["direction"], "seq": row["seq"], "date_local": row["date"],
-                       "flight_no": fn, "resolved": 0, "manual": 0, "status": status,
-                       "message": f"fake {status}", "candidates": [], "unverified": False}
+                leg = {
+                    "direction": row["direction"],
+                    "seq": row["seq"],
+                    "date_local": row["date"],
+                    "flight_no": fn,
+                    "resolved": 0,
+                    "manual": 0,
+                    "status": status,
+                    "message": f"fake {status}",
+                    "candidates": [],
+                    "unverified": False,
+                }
             elif fn in self.flights:
                 leg = self.leg_for(row, *self.flights[fn])
             else:
-                leg = {"direction": row["direction"], "seq": row["seq"], "date_local": row["date"],
-                       "flight_no": fn, "resolved": 0, "manual": 0, "status": "not_found",
-                       "message": "I couldn't find that flight on that date.", "candidates": [],
-                       "unverified": False}
+                leg = {
+                    "direction": row["direction"],
+                    "seq": row["seq"],
+                    "date_local": row["date"],
+                    "flight_no": fn,
+                    "resolved": 0,
+                    "manual": 0,
+                    "status": "not_found",
+                    "message": "I couldn't find that flight on that date.",
+                    "candidates": [],
+                    "unverified": False,
+                }
             out.append(leg)
         return out
 
@@ -92,6 +133,7 @@ class FakeResolver:
 @pytest.fixture
 def fake_resolver(monkeypatch):
     import app.resolver as resolver_mod
+
     fake = FakeResolver()
     monkeypatch.setattr(resolver_mod, "resolve_rows", fake, raising=False)
     return fake
@@ -100,5 +142,5 @@ def fake_resolver(monkeypatch):
 @pytest.fixture
 def client():
     from app.main import app
-    return TestClient(app)
 
+    return TestClient(app)

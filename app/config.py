@@ -1,4 +1,5 @@
 """Central configuration, loaded from environment / .env."""
+
 import hashlib
 import hmac
 import os
@@ -7,6 +8,7 @@ from urllib.parse import urlparse
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except Exception:
     pass
@@ -53,9 +55,7 @@ DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "")
 # Comma-separated Discord user IDs allowed to edit or remove ANY trip on the
 # board. (Discord → Settings → Advanced → Developer Mode, then right-click your
 # name → Copy User ID.) Admins must be logged in via Discord for this to apply.
-ADMIN_DISCORD_IDS = {
-    s.strip() for s in os.getenv("ADMIN_DISCORD_IDS", "").split(",") if s.strip()
-}
+ADMIN_DISCORD_IDS = {s.strip() for s in os.getenv("ADMIN_DISCORD_IDS", "").split(",") if s.strip()}
 
 # --- AeroDataBox (resolution + aircraft type/age) ---
 # Defaults target RapidAPI. To use API.Market or direct access, override BASE
@@ -88,7 +88,7 @@ AIRPORTS_CSV_URL = os.getenv(
 # address a request is attributed to is decided by TRUSTED_PROXY (see below);
 # forwarding headers are ignored unless the TCP peer is a local/private proxy.
 # A global cap of 10x the per-IP limit applies across all addresses.
-WRITE_RATE_LIMIT = int(os.getenv("WRITE_RATE_LIMIT", "12"))     # writes per window
+WRITE_RATE_LIMIT = int(os.getenv("WRITE_RATE_LIMIT", "12"))  # writes per window
 WRITE_RATE_WINDOW = int(os.getenv("WRITE_RATE_WINDOW", "600"))  # seconds
 # Upper bound on legs in a single trip. Each unresolved flight number can cost
 # an AeroDataBox call, so this also caps API spend per request.
@@ -146,8 +146,7 @@ def is_local_base_url() -> bool:
 def derived_key(label: str) -> str:
     """A key for a specific purpose, derived from SECRET_KEY, so that the session
     signing key and (for example) the owner-id hashing key are different."""
-    return hmac.new(SECRET_KEY.encode("utf-8"), f"hypertracker:{label}".encode("utf-8"),
-                    hashlib.sha256).hexdigest()
+    return hmac.new(SECRET_KEY.encode("utf-8"), f"hypertracker:{label}".encode(), hashlib.sha256).hexdigest()
 
 
 def validate() -> None:
@@ -157,12 +156,14 @@ def validate() -> None:
     if DEV_MODE and not local:
         raise ConfigError(
             "DEV_MODE is on but BASE_URL host is not localhost/127.0.0.1: every visitor "
-            "would be an admin. Set DEV_MODE=false, or BASE_URL to a local address.")
+            "would be an admin. Set DEV_MODE=false, or BASE_URL to a local address."
+        )
     if not SECRET_KEY or SECRET_KEY == DEFAULT_SECRET_KEY:
         if not (DEV_MODE and local):
             raise ConfigError(
                 "SECRET_KEY is unset or the default. Set SECRET_KEY to a long random "
-                "value (DEV_MODE on localhost is the only exception).")
+                "value (DEV_MODE on localhost is the only exception)."
+            )
     if TRUSTED_PROXY not in ("none", "cloudflare", "nginx"):
         raise ConfigError(f"TRUSTED_PROXY must be none, cloudflare or nginx (got {TRUSTED_PROXY!r}).")
     if AERODATABOX_AUTH not in ("rapidapi", "apimarket"):

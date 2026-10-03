@@ -1,14 +1,14 @@
 """Resolver: status mapping, hints, ambiguity, manual rows, caching, refresh,
 concurrency and deadline. Offline."""
+
 import asyncio
 
 import httpx
 import pytest
+from fixtures.loader import Upstream, env, future_date, load, resp  # noqa: F401
 
 from app import aerodatabox as adb
-from app import config, resolver
-from app import validation
-from fixtures.loader import Upstream, env, future_date, load, resp  # noqa: F401
+from app import config, resolver, validation
 
 run = asyncio.run
 D = future_date(10)
@@ -19,8 +19,9 @@ def rows(*specs):
     out = []
     for i, s in enumerate(specs):
         fn, a, b, *d = s
-        out.append({"direction": "out", "seq": i, "flight_no": fn, "date": d[0] if d else D,
-                    "from": a, "to": b})
+        out.append(
+            {"direction": "out", "seq": i, "flight_no": fn, "date": d[0] if d else D, "from": a, "to": b}
+        )
     return out
 
 
@@ -30,6 +31,7 @@ def go(*specs, **kw):
             return await resolver.resolve_rows(rows(*specs), **kw)
         finally:
             await adb.aclose()
+
     return run(inner())
 
 
@@ -73,8 +75,12 @@ class Router:
         return len(self.calls)
 
 
-def single(): return resp(200, "flights_single.json", D)
-def aircraft_ok(): return resp(200, "real_aircraft_9vsmg.json")
+def single():
+    return resp(200, "flights_single.json", D)
+
+
+def aircraft_ok():
+    return resp(200, "real_aircraft_9vsmg.json")
 
 
 # --- ok --------------------------------------------------------------------
@@ -83,7 +89,7 @@ def test_ok_flight_with_aircraft(env):
     r = one()
     assert r["status"] == "ok" and r["resolved"] == 1 and r["manual"] == 0
     assert (r["dep_icao"], r["dep_iata"], r["arr_icao"], r["arr_iata"]) == ("KATL", "ATL", "KDEN", "DEN")
-    assert r["dep_name"] == "Atlanta Hartsfield-Jackson" and r["dep_lat"] == 33.64   # local table wins
+    assert r["dep_name"] == "Atlanta Hartsfield-Jackson" and r["dep_lat"] == 33.64  # local table wins
     assert r["dep_local"] == f"{D} 08:15-04:00" and r["arr_utc"] == f"{D} 15:05Z"
     assert r["callsign"] == "DAL1200" and r["reg"] == "N123DN"
     assert r["ac_type"] == "A359" and r["ac_model"] == "Airbus A350-900"
@@ -95,7 +101,9 @@ def test_ok_flight_with_aircraft(env):
 
 
 def test_flight_level_model_survives_when_record_has_only_short_code(env):
-    env.use(Router({"DL1200": single}, lambda: httpx.Response(200, json={"icaoCode": "B739", "model": "B739"})))
+    env.use(
+        Router({"DL1200": single}, lambda: httpx.Response(200, json={"icaoCode": "B739", "model": "B739"}))
+    )
     r = one()
     assert r["ac_model"] == "Boeing 737-900" and r["ac_type"] == "B739"
 
@@ -117,27 +125,32 @@ def test_extra_keys_from_real_flight_shape(env):
     flight = load("real_flight_cx271.json")[0]
     leg = resolver._blank_leg("out", 0, "CX271", "2025-01-11")
     assert resolver._apply_flight(leg, flight, "CX271") is True
-    assert (leg["dep_icao"], leg["arr_icao"]) == ("VHHH", "EHAM")       # not in local table: upstream values
+    assert (leg["dep_icao"], leg["arr_icao"]) == ("VHHH", "EHAM")  # not in local table: upstream values
     assert leg["dep_lat"] == 22.3089 and leg["arr_name"] == "Amsterdam Schiphol"
     assert leg["callsign"] == "CPA271" and leg["reg"] == "B-LXD" and leg["ac_model"] == "Airbus A350"
     assert leg["flight_status"] == "Arrived"
-    assert leg["dep_revised_utc"] == "2025-01-11 15:20Z" and leg["arr_revised_local"] == "2025-01-12 06:09+01:00"
+    assert (
+        leg["dep_revised_utc"] == "2025-01-11 15:20Z" and leg["arr_revised_local"] == "2025-01-12 06:09+01:00"
+    )
     assert leg["dep_city"] == "Hong Kong" and leg["arr_city"] == "Amsterdam"
     assert leg["resolved"] == 1
 
 
 # --- callsign --------------------------------------------------------------
-@pytest.mark.parametrize("f,no,expected", [
-    ({"callSign": "dal1200"}, "DL1200", "DAL1200"),
-    ({"airline": {"icao": "DAL"}}, "DL1200", "DAL1200"),
-    ({"airline": {"icao": "DAL"}}, "DL0042", "DAL0042"),           # digits kept as typed
-    ({"airline": {"icao": "DAL"}}, "DL1200A", "DAL1200"),
-    ({"callSign": "bad callsign!", "airline": {"icao": "DAL"}}, "DL12", "DAL12"),
-    ({}, "DL1200", None),                                            # never the raw flight number
-    ({"airline": {"icao": ""}}, "DL1200", None),
-    ({"airline": {"icao": "DL"}}, "DL1200", None),
-    ({"callSign": None, "airline": None}, "DL1200", None),
-])
+@pytest.mark.parametrize(
+    "f,no,expected",
+    [
+        ({"callSign": "dal1200"}, "DL1200", "DAL1200"),
+        ({"airline": {"icao": "DAL"}}, "DL1200", "DAL1200"),
+        ({"airline": {"icao": "DAL"}}, "DL0042", "DAL0042"),  # digits kept as typed
+        ({"airline": {"icao": "DAL"}}, "DL1200A", "DAL1200"),
+        ({"callSign": "bad callsign!", "airline": {"icao": "DAL"}}, "DL12", "DAL12"),
+        ({}, "DL1200", None),  # never the raw flight number
+        ({"airline": {"icao": ""}}, "DL1200", None),
+        ({"airline": {"icao": "DL"}}, "DL1200", None),
+        ({"callSign": None, "airline": None}, "DL1200", None),
+    ],
+)
 def test_derive_callsign(f, no, expected):
     assert resolver.derive_callsign(f, no) == expected
 
@@ -186,7 +199,9 @@ def test_ambiguous_returns_sorted_candidates_and_never_picks(env):
     r = one("AA300")
     assert r["status"] == "ambiguous" and r["resolved"] == 0 and r["dep_icao"] is None
     assert [(c["from"], c["to"], c["from_iata"], c["to_iata"]) for c in r["candidates"]] == [
-        ("KJAX", "KATL", "JAX", "ATL"), ("KATL", "KDEN", "ATL", "DEN")]   # earlier departure first; codeshare deduped
+        ("KJAX", "KATL", "JAX", "ATL"),
+        ("KATL", "KDEN", "ATL", "DEN"),
+    ]  # earlier departure first; codeshare deduped
     assert set(r["candidates"][0]) == {"from", "from_iata", "to", "to_iata", "dep_local", "arr_local"}
     assert "2 legs" in r["message"] and "Pick" in r["message"]
 
@@ -199,19 +214,32 @@ def test_ambiguous_resolved_by_hint(env, a, b, dep):
 
 
 def test_incomplete_flight_is_not_resolved(env):
-    bad = [{"number": "DL 1200", "departure": {"airport": {"icao": "KATL"},
-            "scheduledTime": {"local": f"{D} 08:00-04:00", "utc": f"{D} 12:00Z"}},
-            "arrival": {"scheduledTime": {}}}]
+    bad = [
+        {
+            "number": "DL 1200",
+            "departure": {
+                "airport": {"icao": "KATL"},
+                "scheduledTime": {"local": f"{D} 08:00-04:00", "utc": f"{D} 12:00Z"},
+            },
+            "arrival": {"scheduledTime": {}},
+        }
+    ]
     env.use(Router({"DL1200": lambda: httpx.Response(200, json=bad)}))
     r = one()
     assert r["status"] == "not_found" and r["resolved"] == 0 and r["arr_icao"] is None
 
 
 # --- dates -----------------------------------------------------------------
-@pytest.mark.parametrize("date,status", [
-    (future_date(-30), "out_of_window"), (future_date(-3), "out_of_window"),
-    (future_date(400), "out_of_window"), ("2026-13-45", "invalid"), ("garbage", "invalid"),
-])
+@pytest.mark.parametrize(
+    "date,status",
+    [
+        (future_date(-30), "out_of_window"),
+        (future_date(-3), "out_of_window"),
+        (future_date(400), "out_of_window"),
+        ("2026-13-45", "invalid"),
+        ("garbage", "invalid"),
+    ],
+)
 def test_date_window(env, date, status):
     up = env.use(Router({"DL1200": single}))
     r = one(date=date)
@@ -227,6 +255,7 @@ def test_window_knobs_are_read(env, monkeypatch):
 
 def test_missing_date_defaults_to_today(env):
     from fixtures.loader import today
+
     env.use(Router())
     r = go(("DL1200", None, None, ""))[0]
     assert r["date_local"] == today().isoformat() and r["status"] == "not_found"
@@ -254,15 +283,18 @@ def test_manual_missing_side_is_invalid(env):
 
 
 # --- upstream failures -----------------------------------------------------
-@pytest.mark.parametrize("item,status,needle", [
-    ((401, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
-    ((403, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
-    ((429, {"message": "slow"}), "quota", "limit for flight lookups"),
-    ((500, {"message": "x"}), "upstream_unavailable", "couldn't reach"),
-    (httpx.ReadTimeout("t"), "upstream_unavailable", "couldn't reach"),
-    (httpx.ConnectError("c"), "upstream_unavailable", "couldn't reach"),
-    ((200, {"message": "junk"}), "upstream_unavailable", "couldn't reach"),
-])
+@pytest.mark.parametrize(
+    "item,status,needle",
+    [
+        ((401, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
+        ((403, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
+        ((429, {"message": "slow"}), "quota", "limit for flight lookups"),
+        ((500, {"message": "x"}), "upstream_unavailable", "couldn't reach"),
+        (httpx.ReadTimeout("t"), "upstream_unavailable", "couldn't reach"),
+        (httpx.ConnectError("c"), "upstream_unavailable", "couldn't reach"),
+        ((200, {"message": "junk"}), "upstream_unavailable", "couldn't reach"),
+    ],
+)
 def test_upstream_failures(env, item, status, needle):
     env.use(Upstream(item))
     r = one(a="JAX", b="DEN")
@@ -288,7 +320,9 @@ def test_missing_key_message_points_to_operator(env, monkeypatch):
 def test_messages_have_no_blame_or_jargon():
     for m in (resolver.MSG_BAD_KEY, resolver.MSG_QUOTA, resolver.MSG_DOWN, resolver.MSG_DEADLINE):
         low = m.lower()
-        assert not any(w in low for w in ("error", "api", "http", "exception", "invalid", "you must", "your fault"))
+        assert not any(
+            w in low for w in ("error", "api", "http", "exception", "invalid", "you must", "your fault")
+        )
         assert m[0].isupper() and m.endswith(".")
 
 
@@ -302,7 +336,8 @@ def test_second_resolution_is_free(env):
 
 def test_negative_result_is_cached_briefly(env):
     up = env.use(Router())
-    one(); one()
+    one()
+    one()
     assert up.calls_n == 1
 
 
@@ -318,7 +353,7 @@ def test_refresh_leg_bypasses_cache_and_returns_only_changes(env):
     second = Router({"DL1200": single}, aircraft_ok)
     adb.set_transport(second.transport)
     changed = run(resolver.refresh_leg(leg))
-    assert second.calls_n >= 1                                  # not served from cache
+    assert second.calls_n >= 1  # not served from cache
     assert changed["reg"] == "N123DN" and changed["ac_type"] == "A359" and "ac_age" in changed
     assert "flight_no" not in changed and "date_local" not in changed and "dep_icao" not in changed
     # a second refresh with nothing new reports no change
@@ -332,7 +367,7 @@ def test_refresh_leg_never_blanks_data_and_ignores_failures(env):
     adb.set_transport(Upstream((500, {"message": "x"})).transport)
     assert run(resolver.refresh_leg(leg)) is None
     adb.set_transport(Router({"DL1200": lambda: resp(200, "flights_single_no_reg.json", D)}).transport)
-    assert run(resolver.refresh_leg(leg)) is None                # reg missing now: keep what we have
+    assert run(resolver.refresh_leg(leg)) is None  # reg missing now: keep what we have
 
 
 def test_refresh_leg_manual_or_dateless_is_none(env):
@@ -355,12 +390,13 @@ def test_results_keep_order_and_concurrency_is_bounded(env, monkeypatch):
 def test_deadline_turns_slow_rows_into_friendly_status(env):
     env.use(Router({"DL1200": single}, delay=5))
     import time
+
     t0 = time.monotonic()
     out = go(("DL1200", "JAX", "DEN"), ("", "JAX", "DEN"), ("DL1201", None, None), deadline=0.2)
     assert time.monotonic() - t0 < 2
     assert [r["status"] for r in out] == ["upstream_unavailable", "manual_ok", "upstream_unavailable"]
     assert out[0]["message"] == resolver.MSG_DEADLINE and out[0]["flight_no"] == "DL1200"
-    assert out[0]["manual"] == 1                                 # hints still fill the route
+    assert out[0]["manual"] == 1  # hints still fill the route
 
 
 def test_one_row_crashing_does_not_sink_the_rest(env, monkeypatch):

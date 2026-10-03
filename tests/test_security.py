@@ -1,14 +1,15 @@
 """Startup guards, client-IP trust, rate limits (spoofing, global cap), key separation."""
+
 import asyncio
 import types
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import manual_row, session_cookie
 
 import app.airplaneslive as al
 from app import config, jobs, netutil
 from app.main import app, public_owner_id
-from helpers import manual_row, session_cookie
 
 pytestmark = pytest.mark.usefixtures("fake_resolver")
 
@@ -28,7 +29,7 @@ def test_refuses_unset_or_default_secret(monkeypatch, secret):
     patch(monkeypatch, SECRET_KEY=secret, DEV_MODE=False, BASE_URL="https://tracker.example.com")
     with pytest.raises(config.ConfigError):
         config.validate()
-    patch(monkeypatch, BASE_URL="http://localhost:8000")          # localhost alone is not enough
+    patch(monkeypatch, BASE_URL="http://localhost:8000")  # localhost alone is not enough
     with pytest.raises(config.ConfigError):
         config.validate()
 
@@ -44,7 +45,7 @@ def test_dev_mode_refused_on_public_host(monkeypatch):
     patch(monkeypatch, DEV_MODE=True, BASE_URL="https://tracker.example.com")
     with pytest.raises(config.ConfigError):
         config.validate()
-    patch(monkeypatch, BASE_URL="http://localhost.evil.com")      # host, not prefix
+    patch(monkeypatch, BASE_URL="http://localhost.evil.com")  # host, not prefix
     with pytest.raises(config.ConfigError):
         config.validate()
 
@@ -63,12 +64,15 @@ def test_app_refuses_to_start_with_default_secret(monkeypatch):
 
 
 def test_forged_cookie_signed_with_default_secret_is_not_admin():
-    forged = session_cookie({"id": "111222333", "name": "x", "discord_id": "111222333"},
-                            secret=config.DEFAULT_SECRET_KEY)
+    forged = session_cookie(
+        {"id": "111222333", "name": "x", "discord_id": "111222333"}, secret=config.DEFAULT_SECRET_KEY
+    )
     c = TestClient(app, cookies=forged)
     body = c.get("/api/trips").json()
     assert body["is_admin"] is False and body["me"] is None
-    genuine = TestClient(app, cookies=session_cookie({"id": "111222333", "name": "x", "discord_id": "111222333"}))
+    genuine = TestClient(
+        app, cookies=session_cookie({"id": "111222333", "name": "x", "discord_id": "111222333"})
+    )
     assert genuine.get("/api/trips").json()["is_admin"] is True
 
 
@@ -77,6 +81,7 @@ def test_owner_hash_key_differs_from_session_key():
     assert config.derived_key("a") != config.derived_key("b")
     import hashlib
     import hmac
+
     naive = hmac.new(config.SECRET_KEY.encode(), b"42", hashlib.sha256).hexdigest()[:16]
     assert public_owner_id("42") != naive and len(public_owner_id("42")) == 16
 
@@ -91,6 +96,7 @@ def test_lifespan_starts_and_cancels_jobs(monkeypatch):
             await asyncio.sleep(3600)
         finally:
             seen["cancelled"] = True
+
     monkeypatch.setattr(al, "run_poller", fake_poller, raising=False)
     with TestClient(app) as c:
         assert c.get("/api/trips").status_code == 200
@@ -105,8 +111,10 @@ def test_lifespan_survives_missing_poller(monkeypatch):
 
 # ---------------- client IP ----------------
 def fake_request(peer, **headers):
-    return types.SimpleNamespace(client=types.SimpleNamespace(host=peer),
-                                 headers={k.replace("_", "-").lower(): v for k, v in headers.items()})
+    return types.SimpleNamespace(
+        client=types.SimpleNamespace(host=peer),
+        headers={k.replace("_", "-").lower(): v for k, v in headers.items()},
+    )
 
 
 def test_client_ip_none_ignores_headers(monkeypatch):
@@ -133,7 +141,7 @@ def test_client_ip_nginx_rightmost_untrusted_hop(monkeypatch):
     r = fake_request("127.0.0.1", x_forwarded_for="1.1.1.1, 34.120.5.7")
     assert netutil.client_ip(r) == "34.120.5.7"
     r = fake_request("127.0.0.1", x_forwarded_for="1.1.1.1, 34.120.5.7, 10.0.0.5")
-    assert netutil.client_ip(r) == "34.120.5.7"       # internal hops skipped
+    assert netutil.client_ip(r) == "34.120.5.7"  # internal hops skipped
     assert netutil.client_ip(fake_request("127.0.0.1", x_forwarded_for="10.0.0.5")) == "127.0.0.1"
     assert netutil.client_ip(fake_request("127.0.0.1")) == "127.0.0.1"
     assert netutil.client_ip(fake_request("127.0.0.1", x_forwarded_for="1.1.1.1, junk")) == "127.0.0.1"
@@ -198,3 +206,16 @@ def test_rate_limit_window_expires(monkeypatch):
     assert netutil.hit("w", "k", 1, 60) and not netutil.hit("w", "k", 1, 60)
     t[0] += 61
     assert netutil.hit("w", "k", 1, 60)
+
+
+def test_cache_helpers_reject_unknown_tables():
+    import pytest
+
+    from app import db
+
+    with pytest.raises(ValueError):
+        db.cache_get("trips; DROP TABLE trips", "id", "1", 60)
+    with pytest.raises(ValueError):
+        db.cache_put("flight_cache", "payload", "k", {})
+    db.cache_put("flight_cache", "cache_key", "k", {"ok": 1})
+    assert db.cache_get("flight_cache", "cache_key", "k", 60) == {"ok": 1}

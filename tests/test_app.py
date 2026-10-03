@@ -3,17 +3,18 @@ limiting, leg caps, OAuth, lifecycle filtering, purge, ETag, security headers.
 
 Manual-airport rows never touch the resolver; flight rows go through the
 `fake_resolver` fixture, so the suite runs offline."""
+
 import datetime as dt
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import day, manual_row, seed_airports, session_cookie
 
 import app.auth as auth_mod
 import app.main as main_mod
 import app.resolver as resolver_mod
 from app import config, db, lifecycle
 from app.main import app
-from helpers import day, manual_row, seed_airports, session_cookie
 
 pytestmark = pytest.mark.usefixtures("fake_resolver")
 
@@ -36,7 +37,7 @@ def trips(c, **kw):
 
 
 def fmt(t):
-    return dt.datetime.fromtimestamp(t, dt.timezone.utc).strftime("%Y-%m-%d %H:%MZ")
+    return dt.datetime.fromtimestamp(t, dt.UTC).strftime("%Y-%m-%d %H:%MZ")
 
 
 def test_board_reads_without_login(client):
@@ -50,7 +51,7 @@ def test_board_reads_without_login(client):
 def test_page_renders_open_board(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert 'href="login"' not in r.text      # no client id -> no login button
+    assert 'href="login"' not in r.text  # no client id -> no login button
 
 
 def test_anon_create_edit_delete_with_token(client):
@@ -128,6 +129,7 @@ def _login_flow(monkeypatch, exchange):
 def test_oauth_success_sets_session_and_logout_is_post(monkeypatch):
     async def ok(code):
         return {"me": {"id": 777, "username": "pilot7"}, "guilds": []}
+
     c, r = _login_flow(monkeypatch, ok)
     assert r.status_code in (302, 307) and "auth=" not in r.headers["location"]
     assert "max-age=1209600" in r.headers["set-cookie"].lower()
@@ -140,6 +142,7 @@ def test_oauth_success_sets_session_and_logout_is_post(monkeypatch):
 def test_oauth_discord_error_redirects(monkeypatch):
     async def boom(code):
         raise getattr(auth_mod, "DiscordError", RuntimeError)("nope")
+
     _, r = _login_flow(monkeypatch, boom)
     assert "auth=error" in r.headers["location"]
 
@@ -153,15 +156,15 @@ def test_authz_matrix():
     def put(c, headers=None):
         return c.put(f"/api/trips/{tid}", json=body, headers=headers or {}).status_code
 
-    assert put(anon) == 403                                    # anon, no token
-    assert put(anon, {"X-Manage-Token": "wrong"}) == 403       # wrong token
+    assert put(anon) == 403  # anon, no token
+    assert put(anon, {"X-Manage-Token": "wrong"}) == 403  # wrong token
     stranger = TestClient(app, cookies=session_cookie(OTHER))
-    assert put(stranger) == 403                                # logged in, not owner
+    assert put(stranger) == 403  # logged in, not owner
     admin = TestClient(app, cookies=session_cookie(ADMIN))
-    assert put(admin) == 200                                   # admin
-    assert put(anon, {"X-Manage-Token": tok}) == 200           # anon with token
+    assert put(admin) == 200  # admin
+    assert put(anon, {"X-Manage-Token": tok}) == 200  # anon with token
 
-    owner = TestClient(app, cookies=session_cookie(OWNER))     # logged-in owner, no token
+    owner = TestClient(app, cookies=session_cookie(OWNER))  # logged-in owner, no token
     oid = make_trip(owner).json()["trip_id"]
     assert owner.put(f"/api/trips/{oid}", json=body).status_code == 200
     assert stranger.delete(f"/api/trips/{oid}").status_code == 403
@@ -172,8 +175,11 @@ def test_authz_matrix():
 def test_put_404_when_trip_gone(client):
     j = make_trip(client).json()
     client.delete(f"/api/trips/{j['trip_id']}", headers={"X-Manage-Token": j["manage_token"]})
-    r = client.put(f"/api/trips/{j['trip_id']}", json={"out": [manual_row()]},
-                   headers={"X-Manage-Token": j["manage_token"]})
+    r = client.put(
+        f"/api/trips/{j['trip_id']}",
+        json={"out": [manual_row()]},
+        headers={"X-Manage-Token": j["manage_token"]},
+    )
     assert r.status_code == 404
 
 
@@ -182,12 +188,16 @@ def test_put_404_when_trip_vanishes_during_resolution(client, fake_resolver, mon
     tid, tok = j["trip_id"], j["manage_token"]
 
     async def purged_midway(rows, *, deadline=20.0):
-        with db.get_conn() as c:      # the trip is purged while we resolve
+        with db.get_conn() as c:  # the trip is purged while we resolve
             c.execute("DELETE FROM trips WHERE id = ?", (tid,))
         return await fake_resolver(rows, deadline=deadline)
+
     monkeypatch.setattr(resolver_mod, "resolve_rows", purged_midway)
-    resp = client.put(f"/api/trips/{tid}", json={"out": [{"flight_no": "DL1200", "date": day(5)}]},
-                      headers={"X-Manage-Token": tok})
+    resp = client.put(
+        f"/api/trips/{tid}",
+        json={"out": [{"flight_no": "DL1200", "date": day(5)}]},
+        headers={"X-Manage-Token": tok},
+    )
     assert resp.status_code == 404
 
 
@@ -196,12 +206,16 @@ def test_put_409_on_concurrent_edit(client, fake_resolver, monkeypatch):
     tid, tok = j["trip_id"], j["manage_token"]
 
     async def raced(rows, *, deadline=20.0):
-        with db.get_conn() as c:      # someone else edits while we resolve
+        with db.get_conn() as c:  # someone else edits while we resolve
             c.execute("UPDATE trips SET updated_at = updated_at + 5 WHERE id = ?", (tid,))
         return await fake_resolver(rows, deadline=deadline)
+
     monkeypatch.setattr(resolver_mod, "resolve_rows", raced)
-    resp = client.put(f"/api/trips/{tid}", json={"out": [{"flight_no": "DL1200", "date": day(5)}]},
-                      headers={"X-Manage-Token": tok})
+    resp = client.put(
+        f"/api/trips/{tid}",
+        json={"out": [{"flight_no": "DL1200", "date": day(5)}]},
+        headers={"X-Manage-Token": tok},
+    )
     assert resp.status_code == 409
 
 
@@ -209,8 +223,11 @@ def test_edit_is_one_transaction(client):
     j = make_trip(client, legs=[manual_row(), manual_row(to="LHR")]).json()
     tid, tok = j["trip_id"], j["manage_token"]
     # the second row is invalid, so nothing may change
-    r = client.put(f"/api/trips/{tid}", headers={"X-Manage-Token": tok},
-                   json={"out": [manual_row(to="LHR"), {"from": "ZZZ", "to": "DEN"}]})
+    r = client.put(
+        f"/api/trips/{tid}",
+        headers={"X-Manage-Token": tok},
+        json={"out": [manual_row(to="LHR"), {"from": "ZZZ", "to": "DEN"}]},
+    )
     assert r.status_code == 400
     t = next(x for x in trips(client) if x["id"] == tid)
     assert [l["to"] for l in t["out"]] == ["KDEN", "EGLL"]
@@ -227,8 +244,11 @@ def test_edit_preserves_resolved_leg_during_outage(client, fake_resolver):
     leg = next(t for t in trips(client) if t["id"] == tid)["out"][0]
     assert leg["resolved"] is True and leg["reg"] == "N123DL" and leg["unverified"] is False
     # a changed date is a different flight: no preservation, so the outage blocks the save
-    r = client.put(f"/api/trips/{tid}", headers={"X-Manage-Token": tok},
-                   json={"out": [{"flight_no": "DL1200", "date": day(6)}]})
+    r = client.put(
+        f"/api/trips/{tid}",
+        headers={"X-Manage-Token": tok},
+        json={"out": [{"flight_no": "DL1200", "date": day(6)}]},
+    )
     assert r.status_code == 400
 
 
@@ -278,13 +298,18 @@ def test_etag_304(client):
 
 def test_etag_covers_live_state(client, monkeypatch):
     import app.airplaneslive as al
+
     now = lifecycle.now()
     with db.get_conn() as c:
-        tid = c.execute("INSERT INTO trips (owner_id,owner_name,created_at,ends_at,updated_at) "
-                        "VALUES ('m_x','X',?,?,?)", (now, now + 7200, now)).lastrowid
-        c.execute("INSERT INTO legs (trip_id,direction,seq,date_local,flight_no,callsign,dep_utc,arr_utc,"
-                  "resolved,manual) VALUES (?, 'out',0,?, 'DL1','DAL1',?,?,1,0)",
-                  (tid, day(0), fmt(now - 1800), fmt(now + 3600)))
+        tid = c.execute(
+            "INSERT INTO trips (owner_id,owner_name,created_at,ends_at,updated_at) VALUES ('m_x','X',?,?,?)",
+            (now, now + 7200, now),
+        ).lastrowid
+        c.execute(
+            "INSERT INTO legs (trip_id,direction,seq,date_local,flight_no,callsign,dep_utc,arr_utc,"
+            "resolved,manual) VALUES (?, 'out',0,?, 'DL1','DAL1',?,?,1,0)",
+            (tid, day(0), fmt(now - 1800), fmt(now + 3600)),
+        )
     monkeypatch.setattr(al, "get_state", lambda cs: "airborne", raising=False)
     a = client.get("/api/trips")
     assert a.json()["trips"][0]["out"][0]["live_state"] == "airborne"
@@ -313,9 +338,13 @@ def test_airport_search_rate_limited(client, monkeypatch):
 
 
 def test_find_airport_iata_lookup_is_deterministic():
-    seed_airports([("KZZZ", "ZZZ", "Tiny strip", 1, 1, "small_airport", "A"),
-                   ("KAAA", "ZZZ", "Big hub", 2, 2, "large_airport", "B"),
-                   ("KBBB", "ZZZ", "Mid field", 3, 3, "medium_airport", "C")])
+    seed_airports(
+        [
+            ("KZZZ", "ZZZ", "Tiny strip", 1, 1, "small_airport", "A"),
+            ("KAAA", "ZZZ", "Big hub", 2, 2, "large_airport", "B"),
+            ("KBBB", "ZZZ", "Mid field", 3, 3, "medium_airport", "C"),
+        ]
+    )
     for _ in range(3):
         assert db.find_airport("ZZZ")["ident"] == "KAAA"
 
@@ -336,16 +365,19 @@ def test_lifecycle_filter_and_purge(client):
     with db.get_conn() as c:
         old_id = c.execute(
             "INSERT INTO trips (owner_id, owner_name, created_at, ends_at, updated_at) VALUES ('m_old','Old',?,?,?)",
-            (now, now - grace - 3600, now)).lastrowid
+            (now, now - grace - 3600, now),
+        ).lastrowid
         new_id = c.execute(
             "INSERT INTO trips (owner_id, owner_name, created_at, ends_at, updated_at) VALUES ('m_new','New',?,?,?)",
-            (now, now + 3600, now)).lastrowid
+            (now, now + 3600, now),
+        ).lastrowid
     ids = {t["id"] for t in trips(client)}
     assert new_id in ids and old_id not in ids
-    assert lifecycle.purge_old_trips() == 0       # inside the purge horizon
+    assert lifecycle.purge_old_trips() == 0  # inside the purge horizon
     with db.get_conn() as c:
-        c.execute("UPDATE trips SET ends_at = ? WHERE id = ?",
-                  (now - config.TRIP_PURGE_DAYS * 86400 - 10, old_id))
+        c.execute(
+            "UPDATE trips SET ends_at = ? WHERE id = ?", (now - config.TRIP_PURGE_DAYS * 86400 - 10, old_id)
+        )
     assert lifecycle.purge_old_trips() == 1
     with db.get_conn() as c:
         assert c.execute("SELECT 1 FROM trips WHERE id = ?", (old_id,)).fetchone() is None

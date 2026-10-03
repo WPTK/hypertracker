@@ -1,6 +1,7 @@
 """Network helpers shared by routers. `client_ip` is the single place that decides
 which address a request is attributed to (rate limits, logging); `rate_limit`
 is the shared sliding-window limiter."""
+
 import ipaddress
 import threading
 import time
@@ -87,9 +88,15 @@ def hit(bucket: str, key: str, limit: int, window: float) -> bool:
         return True
 
 
-def rate_limit(request: Request, bucket: str, limit: int, window: float,
-               *, global_limit: int | None = None,
-               message: str = "too many requests from this address, try again in a few minutes") -> None:
+def rate_limit(
+    request: Request,
+    bucket: str,
+    limit: int,
+    window: float,
+    *,
+    global_limit: int | None = None,
+    message: str = "too many requests from this address, try again in a few minutes",
+) -> None:
     """Raise 429 when this client (and, optionally, everyone together) is over
     the limit. The global cap stops address rotation from spamming."""
     ip = client_ip(request)

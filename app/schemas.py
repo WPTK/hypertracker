@@ -1,5 +1,6 @@
 """Request models and body parsing. Everything that can be wrong with a request
 body is turned into a 400 with the contract's error shape, never a 500 or 422."""
+
 import json
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -87,6 +88,7 @@ class TripIn(BaseModel):
 
 class PreviewIn(BaseModel):
     """Not used by this module's routes; offered for the preview router."""
+
     model_config = ConfigDict(extra="ignore")
     rows: list[Row] = Field(default_factory=list)
 
@@ -112,10 +114,10 @@ async def parse_body(request: Request, model: type[BaseModel], *, max_bytes: int
     try:
         data = json.loads(raw)
     except (ValueError, UnicodeDecodeError, RecursionError):
-        raise HTTPException(400, "request body must be valid JSON")
+        raise HTTPException(400, "request body must be valid JSON") from None
     if not isinstance(data, dict):
         raise HTTPException(400, "request body must be a JSON object")
     try:
         return model.model_validate(data)
     except ValidationError as exc:
-        raise HTTPException(400, _first_error_message(exc))
+        raise HTTPException(400, _first_error_message(exc)) from None

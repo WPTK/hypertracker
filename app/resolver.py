@@ -4,6 +4,7 @@
 row comes back with a `status` (see the API contract), a friendly `message`,
 `candidates` (for ambiguous / route-mismatch answers) and the DB leg columns.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -15,7 +16,9 @@ from . import aerodatabox as adb
 from . import config, db
 from .aerodatabox import parse_adb_dt  # noqa: F401  (public; lifecycle imports it)
 from .validation import (  # noqa: F401  (normalize_flight_no is re-exported)
-    normalize_airport_code, normalize_flight_no, validate_leg_date,
+    normalize_airport_code,
+    normalize_flight_no,
+    validate_leg_date,
 )
 
 log = logging.getLogger("hypertracker.resolver")
@@ -59,33 +62,33 @@ def msg_not_found(flight_no, date_iso, other_dates=()) -> str:
     when = _pretty_date(date_iso)
     if other_dates:
         days = " or ".join(_pretty_date(d) for d in other_dates[:2])
-        return (f"I couldn't find {flight_no} on {when}, but I did see it on {days}. "
-                "Check the date, or add the airports yourself.")
-    return (f"I couldn't find {flight_no} on {when}. "
-            "Check the number and date, or add the airports yourself.")
+        return (
+            f"I couldn't find {flight_no} on {when}, but I did see it on {days}. "
+            "Check the date, or add the airports yourself."
+        )
+    return f"I couldn't find {flight_no} on {when}. Check the number and date, or add the airports yourself."
 
 
 def msg_route_mismatch(flight_no, date_iso) -> str:
-    return (f"I found {flight_no} on {_pretty_date(date_iso)}, but not on that route. "
-            "Check the airports, or leave them blank.")
+    return (
+        f"I found {flight_no} on {_pretty_date(date_iso)}, but not on that route. "
+        "Check the airports, or leave them blank."
+    )
 
 
 def msg_ambiguous(flight_no, date_iso, n) -> str:
-    return (f"{flight_no} flies {n} legs on {_pretty_date(date_iso)}. "
-            "Pick the one you're taking.")
+    return f"{flight_no} flies {n} legs on {_pretty_date(date_iso)}. Pick the one you're taking."
 
 
-MSG_BAD_KEY = ("Flight lookup isn't set up correctly right now. "
-               "Please let the person who runs this board know. "
-               "You can still add the airports yourself.")
-MSG_QUOTA = ("I've hit the limit for flight lookups for now. "
-             "Try again later, or add the airports yourself.")
-MSG_DOWN = ("I couldn't reach the flight data service. "
-            "Try again in a minute, or add the airports yourself.")
-MSG_DEADLINE = ("That took longer than I expected. "
-                "Try again in a moment, or add the airports yourself.")
-MSG_INCOMPLETE = ("I found that flight, but it came back without a full route. "
-                  "Add the airports yourself.")
+MSG_BAD_KEY = (
+    "Flight lookup isn't set up correctly right now. "
+    "Please let the person who runs this board know. "
+    "You can still add the airports yourself."
+)
+MSG_QUOTA = "I've hit the limit for flight lookups for now. Try again later, or add the airports yourself."
+MSG_DOWN = "I couldn't reach the flight data service. Try again in a minute, or add the airports yourself."
+MSG_DEADLINE = "That took longer than I expected. Try again in a moment, or add the airports yourself."
+MSG_INCOMPLETE = "I found that flight, but it came back without a full route. Add the airports yourself."
 MSG_NEED_AIRPORTS = "Add a flight number, or both airports."
 
 
@@ -95,10 +98,10 @@ def check_date(raw, today: dt.date | None = None):
 
     A missing date means today (UTC). Garbage is 'invalid'; outside the
     FLIGHT_WINDOW_* knobs is 'out_of_window'."""
-    today = today or dt.datetime.now(dt.timezone.utc).date()
+    today = today or dt.datetime.now(dt.UTC).date()
     iso, err = validate_leg_date(
-        raw, today, int(_knob("FLIGHT_WINDOW_PAST_DAYS", 2)),
-        int(_knob("FLIGHT_WINDOW_FUTURE_DAYS", 330)))
+        raw, today, int(_knob("FLIGHT_WINDOW_PAST_DAYS", 2)), int(_knob("FLIGHT_WINDOW_FUTURE_DAYS", 330))
+    )
     if err is None:
         return iso, None, None
     s = str(raw or "").strip()
@@ -112,17 +115,40 @@ def check_date(raw, today: dt.date | None = None):
 # --- leg construction --------------------------------------------------------
 def _blank_leg(direction, seq, flight_no, date_local) -> dict:
     return {
-        "direction": direction, "seq": seq, "date_local": date_local,
-        "flight_no": flight_no or None, "callsign": None,
-        "dep_icao": None, "dep_iata": None, "dep_name": None, "dep_lat": None, "dep_lon": None,
-        "dep_local": None, "dep_utc": None,
-        "arr_icao": None, "arr_iata": None, "arr_name": None, "arr_lat": None, "arr_lon": None,
-        "arr_local": None, "arr_utc": None,
-        "reg": None, "ac_type": None, "ac_model": None, "ac_age": None, "ac_built": None,
-        "resolved": 0, "manual": 0,
+        "direction": direction,
+        "seq": seq,
+        "date_local": date_local,
+        "flight_no": flight_no or None,
+        "callsign": None,
+        "dep_icao": None,
+        "dep_iata": None,
+        "dep_name": None,
+        "dep_lat": None,
+        "dep_lon": None,
+        "dep_local": None,
+        "dep_utc": None,
+        "arr_icao": None,
+        "arr_iata": None,
+        "arr_name": None,
+        "arr_lat": None,
+        "arr_lon": None,
+        "arr_local": None,
+        "arr_utc": None,
+        "reg": None,
+        "ac_type": None,
+        "ac_model": None,
+        "ac_age": None,
+        "ac_built": None,
+        "resolved": 0,
+        "manual": 0,
         # Extras (not DB columns; callers may ignore them).
-        "flight_status": None, "dep_revised_utc": None, "dep_revised_local": None,
-        "arr_revised_utc": None, "arr_revised_local": None, "dep_city": None, "arr_city": None,
+        "flight_status": None,
+        "dep_revised_utc": None,
+        "dep_revised_local": None,
+        "arr_revised_utc": None,
+        "arr_revised_local": None,
+        "dep_city": None,
+        "arr_city": None,
     }
 
 
@@ -133,9 +159,15 @@ def _result(leg: dict, status: str, message: str, candidates=None, unverified=Fa
 
 
 def _set_airport(leg: dict, side: str, ap: dict) -> None:
-    leg.update({f"{side}_icao": ap["ident"], f"{side}_iata": ap.get("iata"),
-                f"{side}_name": ap.get("name"), f"{side}_lat": ap.get("lat"),
-                f"{side}_lon": ap.get("lon")})
+    leg.update(
+        {
+            f"{side}_icao": ap["ident"],
+            f"{side}_iata": ap.get("iata"),
+            f"{side}_name": ap.get("name"),
+            f"{side}_lat": ap.get("lat"),
+            f"{side}_lon": ap.get("lon"),
+        }
+    )
 
 
 def _fill_manual(leg: dict, dep_code, arr_code) -> tuple[bool, list]:
@@ -167,8 +199,13 @@ def _adb_airport(side: dict) -> dict | None:
     if not (icao or iata):
         return None
     loc = ap.get("location") if isinstance(ap.get("location"), dict) else {}
-    return {"ident": icao or iata, "iata": iata, "name": ap.get("name"),
-            "lat": loc.get("lat"), "lon": loc.get("lon")}
+    return {
+        "ident": icao or iata,
+        "iata": iata,
+        "name": ap.get("name"),
+        "lat": loc.get("lat"),
+        "lon": loc.get("lon"),
+    }
 
 
 def derive_callsign(f: dict, flight_no: str) -> str | None:
@@ -189,8 +226,10 @@ def _candidate(f: dict) -> dict:
     dep, arr = f.get("departure") or {}, f.get("arrival") or {}
     da, aa = _adb_airport(dep), _adb_airport(arr)
     return {
-        "from": da["ident"] if da else None, "from_iata": da.get("iata") if da else None,
-        "to": aa["ident"] if aa else None, "to_iata": aa.get("iata") if aa else None,
+        "from": da["ident"] if da else None,
+        "from_iata": da.get("iata") if da else None,
+        "to": aa["ident"] if aa else None,
+        "to_iata": aa.get("iata") if aa else None,
         "dep_local": (dep.get("scheduledTime") or {}).get("local"),
         "arr_local": (arr.get("scheduledTime") or {}).get("local"),
     }
@@ -260,16 +299,18 @@ async def _resolve_one(row: dict, *, use_cache: bool = True) -> dict:
         _, unknown = await asyncio.to_thread(_fill_manual, leg, dep_code, arr_code)
         if unknown:
             return _result(leg, "airport_unknown", msg_airport_unknown(unknown[0]))
-        return _result(leg, "manual_ok", msg_manual(
-            _label(leg["dep_iata"], leg["dep_icao"]), _label(leg["arr_iata"], leg["arr_icao"])))
+        return _result(
+            leg,
+            "manual_ok",
+            msg_manual(_label(leg["dep_iata"], leg["dep_icao"]), _label(leg["arr_iata"], leg["arr_icao"])),
+        )
 
     async def unresolved(status: str, message: str, candidates=None) -> dict:
         # User-supplied From/To fill the manual route but never flip `resolved`.
         await asyncio.to_thread(_fill_manual, leg, dep_code, arr_code)
         return _result(leg, status, message, candidates)
 
-    res, pick = await adb.flight_by_number(flight_no, date_iso, dep_code, arr_code,
-                                           use_cache=use_cache)
+    res, pick = await adb.flight_by_number(flight_no, date_iso, dep_code, arr_code, use_cache=use_cache)
     if res.kind == adb.KIND_BAD_KEY:
         return await unresolved("upstream_unavailable", MSG_BAD_KEY)
     if res.kind == adb.KIND_QUOTA:
@@ -281,8 +322,11 @@ async def _resolve_one(row: dict, *, use_cache: bool = True) -> dict:
 
     if pick.kind == "not_found":
         if pick.reason == "route_mismatch":
-            return await unresolved("not_found", msg_route_mismatch(flight_no, date_iso),
-                                    [await asyncio.to_thread(_candidate, f) for f in pick.candidates])
+            return await unresolved(
+                "not_found",
+                msg_route_mismatch(flight_no, date_iso),
+                [await asyncio.to_thread(_candidate, f) for f in pick.candidates],
+            )
         return await unresolved("not_found", msg_not_found(flight_no, date_iso, pick.other_dates))
     if pick.kind == "ambiguous":
         cands = await asyncio.to_thread(lambda: [_candidate(f) for f in pick.candidates])
@@ -292,18 +336,24 @@ async def _resolve_one(row: dict, *, use_cache: bool = True) -> dict:
     if not ok:
         return await unresolved("not_found", MSG_INCOMPLETE)
     await _enrich_aircraft(leg)
-    return _result(leg, "ok", msg_found(
-        flight_no, _label(leg["dep_iata"], leg["dep_icao"]), _label(leg["arr_iata"], leg["arr_icao"])))
+    return _result(
+        leg,
+        "ok",
+        msg_found(
+            flight_no, _label(leg["dep_iata"], leg["dep_icao"]), _label(leg["arr_iata"], leg["arr_icao"])
+        ),
+    )
 
 
 def _failed_row(row: dict, status: str, message: str) -> dict:
     flight_no = normalize_flight_no(row.get("flight_no"))
-    leg = _blank_leg(row.get("direction") or "out", int(row.get("seq") or 0), flight_no,
-                     str(row.get("date") or "") or None)
+    leg = _blank_leg(
+        row.get("direction") or "out", int(row.get("seq") or 0), flight_no, str(row.get("date") or "") or None
+    )
     try:
         _fill_manual(leg, normalize_airport_code(row.get("from")), normalize_airport_code(row.get("to")))
     except Exception:
-        pass
+        log.debug("could not fill the manual route hint", exc_info=True)
     return _result(leg, status, message)
 
 
@@ -329,7 +379,7 @@ async def resolve_rows(rows: list[dict], *, deadline: float | None = None) -> li
             if not t.done():
                 t.cancel()
     out = []
-    for row, t in zip(rows, tasks):
+    for row, t in zip(rows, tasks, strict=False):
         if t.cancelled() or not t.done():
             out.append(_failed_row(row, "upstream_unavailable", MSG_DEADLINE))
         elif t.exception() is not None:
@@ -350,8 +400,14 @@ async def refresh_leg(leg: dict) -> dict | None:
     date_local = leg.get("date_local")
     if not flight_no or not date_local:
         return None
-    row = {"direction": leg.get("direction"), "seq": leg.get("seq"), "flight_no": flight_no,
-           "date": date_local, "from": leg.get("dep_icao"), "to": leg.get("arr_icao")}
+    row = {
+        "direction": leg.get("direction"),
+        "seq": leg.get("seq"),
+        "flight_no": flight_no,
+        "date": date_local,
+        "from": leg.get("dep_icao"),
+        "to": leg.get("arr_icao"),
+    }
     try:
         new = await _resolve_one(row, use_cache=False)
     except Exception:
@@ -359,8 +415,11 @@ async def refresh_leg(leg: dict) -> dict | None:
         return None
     if new["status"] != "ok":
         return None
-    changed = {k: v for k, v in new.items()
-               if k in leg and k not in _IDENTITY_KEYS and v is not None and v != leg.get(k)}
+    changed = {
+        k: v
+        for k, v in new.items()
+        if k in leg and k not in _IDENTITY_KEYS and v is not None and v != leg.get(k)
+    }
     return changed or None
 
 
@@ -368,14 +427,32 @@ async def refresh_leg(leg: dict) -> dict | None:
 _EXTRA_KEYS = ("status", "message", "candidates", "unverified")
 
 
-async def resolve_leg(direction: str, seq: int, flight_no: str, date_local: str,
-                      manual_from: str | None = None, manual_to: str | None = None) -> dict:
+async def resolve_leg(
+    direction: str,
+    seq: int,
+    flight_no: str,
+    date_local: str,
+    manual_from: str | None = None,
+    manual_to: str | None = None,
+) -> dict:
     """Old single-leg entry point: DB columns only. Prefer resolve_rows."""
-    if not normalize_flight_no(flight_no):      # old behaviour: manual legs skip the window
+    if not normalize_flight_no(flight_no):  # old behaviour: manual legs skip the window
         leg = _blank_leg(direction, seq, None, date_local)
         if manual_from or manual_to:
             _fill_manual(leg, normalize_airport_code(manual_from), normalize_airport_code(manual_to))
         return leg
-    out = (await resolve_rows([{"direction": direction, "seq": seq, "flight_no": flight_no,
-                                "date": date_local, "from": manual_from, "to": manual_to}]))[0]
+    out = (
+        await resolve_rows(
+            [
+                {
+                    "direction": direction,
+                    "seq": seq,
+                    "flight_no": flight_no,
+                    "date": date_local,
+                    "from": manual_from,
+                    "to": manual_to,
+                }
+            ]
+        )
+    )[0]
     return {k: v for k, v in out.items() if k not in _EXTRA_KEYS}

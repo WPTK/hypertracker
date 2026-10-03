@@ -1,4 +1,5 @@
 """Hyperfixed Flight Tracker: web app (pages + JSON API + optional Discord OAuth)."""
+
 import asyncio
 import datetime as dt
 import hashlib
@@ -15,14 +16,25 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import aerodatabox, airplaneslive, auth, config, db, jobs, lifecycle, netutil, preview, resolver, schemas
-from .validation import (is_valid_flight_no, normalize_airport_code, normalize_flight_no,
-                         validate_leg_date)
+from . import (
+    aerodatabox,
+    airplaneslive,
+    auth,
+    config,
+    db,
+    jobs,
+    lifecycle,
+    netutil,
+    preview,
+    resolver,
+    schemas,
+)
+from .validation import is_valid_flight_no, normalize_airport_code, normalize_flight_no, validate_leg_date
 
 log = logging.getLogger("hypertracker")
 
 SESSION_MAX_AGE = 14 * 24 * 3600
-MAX_TRIP_ID = 2 ** 31 - 1
+MAX_TRIP_ID = 2**31 - 1
 OK_STATUSES = ("ok", "manual_ok")
 # Statuses a user may knowingly keep (stored with unverified = 1).
 UNVERIFIED_OK = ("not_found", "upstream_unavailable", "quota")
@@ -30,6 +42,7 @@ UNVERIFIED_OK = ("not_found", "upstream_unavailable", "quota")
 
 def _supervised(name: str, factory, restart_delay: float = 30.0):
     """Run a background coroutine forever; log and restart if it crashes."""
+
     async def runner():
         while True:
             try:
@@ -40,6 +53,7 @@ def _supervised(name: str, factory, restart_delay: float = 30.0):
             except Exception:
                 log.exception("background task %s crashed; restarting in %ss", name, restart_delay)
                 await asyncio.sleep(restart_delay)
+
     return asyncio.create_task(runner(), name=name)
 
 
@@ -78,9 +92,11 @@ app.mount("/static", StaticFiles(directory=str(config.BASE_DIR / "app" / "static
 
 app.include_router(preview.router)
 
-CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-       "img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; "
-       "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://discord.com")
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://discord.com"
+)
 
 
 @app.middleware("http")
@@ -103,8 +119,9 @@ async def _validation_error(_: Request, exc: RequestValidationError):
     contract's error shape, never a 422."""
     errs = exc.errors()
     loc = ".".join(str(p) for p in errs[0].get("loc", ()) if p != "path") if errs else ""
-    return JSONResponse({"detail": f"invalid value for '{loc}'" if loc else "invalid request"},
-                        status_code=400)
+    return JSONResponse(
+        {"detail": f"invalid value for '{loc}'" if loc else "invalid request"}, status_code=400
+    )
 
 
 templates = Jinja2Templates(directory=str(config.BASE_DIR / "app" / "templates"))
@@ -120,9 +137,13 @@ def _check_write_rate(request: Request) -> None:
     if auth.is_admin(auth.current_user(request)):
         return
     netutil.rate_limit(
-        request, "write", config.WRITE_RATE_LIMIT, config.WRITE_RATE_WINDOW,
+        request,
+        "write",
+        config.WRITE_RATE_LIMIT,
+        config.WRITE_RATE_WINDOW,
         global_limit=config.WRITE_RATE_LIMIT * GLOBAL_WRITE_MULTIPLIER,
-        message="too many changes from this address, try again in a few minutes")
+        message="too many changes from this address, try again in a few minutes",
+    )
 
 
 # ---------------- manage tokens / identity ----------------
@@ -136,8 +157,9 @@ def public_owner_id(owner_id: str) -> str:
     a logged-in browser can recognise its own) but it's keyed with a key derived
     from SECRET_KEY that is distinct from the session signing key, so the value
     is meaningless off this server and a real Discord ID is never exposed."""
-    return hmac.new(config.derived_key("public-owner-id").encode("utf-8"),
-                    owner_id.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+    return hmac.new(
+        config.derived_key("public-owner-id").encode("utf-8"), owner_id.encode("utf-8"), hashlib.sha256
+    ).hexdigest()[:16]
 
 
 def _new_manual_uid() -> str:
@@ -207,8 +229,9 @@ def login(request: Request):
 
 
 @app.get("/auth/callback")
-async def callback(request: Request, code: str | None = None,
-                   state: str | None = None, error: str | None = None):
+async def callback(
+    request: Request, code: str | None = None, state: str | None = None, error: str | None = None
+):
     expected = request.session.pop("oauth_state", None)
     if error or not code:
         return RedirectResponse("./?auth=denied")
@@ -270,8 +293,13 @@ def get_trips(request: Request):
     }
     # The ETag covers trips and live states; the clock fields change every
     # second and are deliberately left out of it.
-    etag = '"' + hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"))
-                                .encode("utf-8")).hexdigest()[:32] + '"'
+    etag = (
+        '"'
+        + hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[
+            :32
+        ]
+        + '"'
+    )
     headers = {"ETag": etag, "Cache-Control": "private, no-cache", "Vary": "Cookie"}
     if _etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
@@ -284,7 +312,7 @@ def get_trips(request: Request):
 @app.get("/api/airports/search")
 def airport_search(request: Request, q: str = Query("")):
     netutil.rate_limit(request, "search", config.SEARCH_RATE_LIMIT, config.SEARCH_RATE_WINDOW)
-    return {"results": db.search_airports(q[:db.SEARCH_Q_MAX])}
+    return {"results": db.search_airports(q[: db.SEARCH_Q_MAX])}
 
 
 # ---------------- API: write ----------------
@@ -307,8 +335,15 @@ def _date_error_status(raw: str | None) -> str:
 
 def _blank_leg(direction: str, seq: int, date_local: str | None, flight_no: str | None) -> dict:
     leg = {c: None for c in _LEG_COLS}
-    leg.update(direction=direction, seq=seq, date_local=date_local, flight_no=flight_no,
-               resolved=0, manual=0, unverified=0)
+    leg.update(
+        direction=direction,
+        seq=seq,
+        date_local=date_local,
+        flight_no=flight_no,
+        resolved=0,
+        manual=0,
+        unverified=0,
+    )
     return leg
 
 
@@ -317,7 +352,7 @@ def _prepare_rows(trip: schemas.TripIn):
     (flight_inputs, manual_slots, errors): `flight_inputs` are resolver rows,
     `slots` is the ordered list of (kind, payload) so results can be merged
     back in submitted order. Runs in a worker thread (looks up airports)."""
-    today = dt.datetime.fromtimestamp(lifecycle.now(), dt.timezone.utc).date()
+    today = dt.datetime.fromtimestamp(lifecycle.now(), dt.UTC).date()
     past = int(getattr(config, "FLIGHT_WINDOW_PAST_DAYS", 2))
     future = int(getattr(config, "FLIGHT_WINDOW_FUTURE_DAYS", 330))
     flight_inputs: list[dict] = []
@@ -339,40 +374,84 @@ def _prepare_rows(trip: schemas.TripIn):
             frm = normalize_airport_code(raw_from) if raw_from else None
             to = normalize_airport_code(raw_to) if raw_to else None
             if (raw_from and not frm) or (raw_to and not to):
-                errors.append(_row_error(direction, idx, "invalid",
-                                         "Airport codes are 3 or 4 letters, like DEN or KDEN."))
+                errors.append(
+                    _row_error(
+                        direction, idx, "invalid", "Airport codes are 3 or 4 letters, like DEN or KDEN."
+                    )
+                )
                 continue
             fn = normalize_flight_no(raw_fn)
             if fn:
                 if not is_valid_flight_no(fn):
-                    errors.append(_row_error(direction, idx, "invalid",
-                                             "That doesn't look like a flight number. Try something like DL1200."))
+                    errors.append(
+                        _row_error(
+                            direction,
+                            idx,
+                            "invalid",
+                            "That doesn't look like a flight number. Try something like DL1200.",
+                        )
+                    )
                     continue
-                flight_inputs.append({"direction": direction, "seq": seq, "flight_no": fn,
-                                      "date": date_iso, "from": frm, "to": to})
-                slots.append({"kind": "flight", "direction": direction, "index": idx, "seq": seq,
-                              "n": len(flight_inputs) - 1, "flight_no": fn, "date": date_iso})
+                flight_inputs.append(
+                    {
+                        "direction": direction,
+                        "seq": seq,
+                        "flight_no": fn,
+                        "date": date_iso,
+                        "from": frm,
+                        "to": to,
+                    }
+                )
+                slots.append(
+                    {
+                        "kind": "flight",
+                        "direction": direction,
+                        "index": idx,
+                        "seq": seq,
+                        "n": len(flight_inputs) - 1,
+                        "flight_no": fn,
+                        "date": date_iso,
+                    }
+                )
             else:
                 if not (frm and to):
-                    errors.append(_row_error(direction, idx, "invalid",
-                                             "Add a flight number, or both airports."))
+                    errors.append(
+                        _row_error(direction, idx, "invalid", "Add a flight number, or both airports.")
+                    )
                     continue
                 a, b = db.find_airport(frm), db.find_airport(to)
                 missing = [c for c, ap in ((frm, a), (to, b)) if not ap]
                 if missing:
-                    errors.append(_row_error(direction, idx, "airport_unknown",
-                                             f"I don't know the airport {missing[0]}. Check the code."))
+                    errors.append(
+                        _row_error(
+                            direction,
+                            idx,
+                            "airport_unknown",
+                            f"I don't know the airport {missing[0]}. Check the code.",
+                        )
+                    )
                     continue
                 if a["ident"] == b["ident"]:
-                    errors.append(_row_error(direction, idx, "invalid",
-                                             "The departure and arrival airports are the same."))
+                    errors.append(
+                        _row_error(
+                            direction, idx, "invalid", "The departure and arrival airports are the same."
+                        )
+                    )
                     continue
                 leg = _blank_leg(direction, seq, date_iso, None)
-                leg.update(manual=1,
-                           dep_icao=a["ident"], dep_iata=a.get("iata"), dep_name=a.get("name"),
-                           dep_lat=a.get("lat"), dep_lon=a.get("lon"),
-                           arr_icao=b["ident"], arr_iata=b.get("iata"), arr_name=b.get("name"),
-                           arr_lat=b.get("lat"), arr_lon=b.get("lon"))
+                leg.update(
+                    manual=1,
+                    dep_icao=a["ident"],
+                    dep_iata=a.get("iata"),
+                    dep_name=a.get("name"),
+                    dep_lat=a.get("lat"),
+                    dep_lon=a.get("lon"),
+                    arr_icao=b["ident"],
+                    arr_iata=b.get("iata"),
+                    arr_name=b.get("name"),
+                    arr_lat=b.get("lat"),
+                    arr_lon=b.get("lon"),
+                )
                 slots.append({"kind": "manual", "direction": direction, "index": idx, "seq": seq, "leg": leg})
             seq += 1
     return flight_inputs, slots, errors
@@ -395,9 +474,12 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
                 raise ValueError("resolver returned a mismatched result")
         except Exception:
             log.exception("resolve_rows failed")
-            results = [{"status": "upstream_unavailable",
-                        "message": "I couldn't reach the flight data service. Try again in a minute."}
-                       ] * len(flight_inputs)
+            results = [
+                {
+                    "status": "upstream_unavailable",
+                    "message": "I couldn't reach the flight data service. Try again in a minute.",
+                }
+            ] * len(flight_inputs)
 
     legs: list[dict] = []
     for slot in slots:
@@ -413,7 +495,7 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
 
     row_errors: list[dict] = []
     final: list[dict] = []
-    for leg, slot in zip(legs, slots):
+    for leg, slot in zip(legs, slots, strict=False):
         if slot["kind"] == "manual":
             final.append(leg)
             continue
@@ -423,8 +505,14 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
         elif status in UNVERIFIED_OK and trip.accept_unverified:
             unverified = True
         else:
-            row_errors.append(_row_error(slot["direction"], slot["index"], status,
-                                         leg.get("message") or "I couldn't confirm that flight."))
+            row_errors.append(
+                _row_error(
+                    slot["direction"],
+                    slot["index"],
+                    status,
+                    leg.get("message") or "I couldn't confirm that flight.",
+                )
+            )
             continue
         out = _blank_leg(slot["direction"], slot["seq"], slot["date"], slot["flight_no"])
         for c in _LEG_COLS:
@@ -442,18 +530,64 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
     return final
 
 
-_LEG_COLS = ("trip_id", "direction", "seq", "date_local", "flight_no", "callsign",
-             "dep_icao", "dep_iata", "dep_name", "dep_lat", "dep_lon", "dep_local", "dep_utc",
-             "arr_icao", "arr_iata", "arr_name", "arr_lat", "arr_lon", "arr_local", "arr_utc",
-             "reg", "ac_type", "ac_model", "ac_age", "ac_built", "resolved", "manual", "unverified")
+_LEG_COLS = (
+    "trip_id",
+    "direction",
+    "seq",
+    "date_local",
+    "flight_no",
+    "callsign",
+    "dep_icao",
+    "dep_iata",
+    "dep_name",
+    "dep_lat",
+    "dep_lon",
+    "dep_local",
+    "dep_utc",
+    "arr_icao",
+    "arr_iata",
+    "arr_name",
+    "arr_lat",
+    "arr_lon",
+    "arr_local",
+    "arr_utc",
+    "reg",
+    "ac_type",
+    "ac_model",
+    "ac_age",
+    "ac_built",
+    "resolved",
+    "manual",
+    "unverified",
+)
 
 # Leg data carried over from a previous version of the leg when a re-resolve
 # fails: everything except identity/order (direction, seq, flight_no,
 # date_local).
-_PRESERVE_FIELDS = ("callsign",
-                    "dep_icao", "dep_iata", "dep_name", "dep_lat", "dep_lon", "dep_local", "dep_utc",
-                    "arr_icao", "arr_iata", "arr_name", "arr_lat", "arr_lon", "arr_local", "arr_utc",
-                    "reg", "ac_type", "ac_model", "ac_age", "ac_built", "resolved", "manual")
+_PRESERVE_FIELDS = (
+    "callsign",
+    "dep_icao",
+    "dep_iata",
+    "dep_name",
+    "dep_lat",
+    "dep_lon",
+    "dep_local",
+    "dep_utc",
+    "arr_icao",
+    "arr_iata",
+    "arr_name",
+    "arr_lat",
+    "arr_lon",
+    "arr_local",
+    "arr_utc",
+    "reg",
+    "ac_type",
+    "ac_model",
+    "ac_age",
+    "ac_built",
+    "resolved",
+    "manual",
+)
 
 _SOFT_FAIL = UNVERIFIED_OK
 
@@ -490,8 +624,14 @@ def _insert_legs(conn, trip_id: int, legs: list[dict]) -> None:
         )
 
 
-def _insert_trip(owner_id: str, owner_name: str, tz: str | None, legs: list[dict],
-                 manage_token_hash: str | None, upsert_tz_user: bool) -> int:
+def _insert_trip(
+    owner_id: str,
+    owner_name: str,
+    tz: str | None,
+    legs: list[dict],
+    manage_token_hash: str | None,
+    upsert_tz_user: bool,
+) -> int:
     created = lifecycle.now()
     ends_at = lifecycle.compute_ends_at(legs, created)
     with db.get_conn() as conn:
@@ -510,8 +650,11 @@ def _insert_trip(owner_id: str, owner_name: str, tz: str | None, legs: list[dict
 def _read_trip(trip_id: int):
     with db.get_conn() as conn:
         row = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-        old_legs = [dict(l) for l in conn.execute(
-            "SELECT * FROM legs WHERE trip_id = ?", (trip_id,)).fetchall()] if row else []
+        old_legs = (
+            [dict(l) for l in conn.execute("SELECT * FROM legs WHERE trip_id = ?", (trip_id,)).fetchall()]
+            if row
+            else []
+        )
     return row, old_legs
 
 
@@ -528,8 +671,10 @@ def _write_edit(trip_id: int, expected_updated_at: int, tz: str | None, legs: li
         ends_at = lifecycle.compute_ends_at(legs, row["created_at"])
         updated = max(lifecycle.now(), row["updated_at"] + 1)
         conn.execute("DELETE FROM legs WHERE trip_id = ?", (trip_id,))
-        conn.execute("UPDATE trips SET submitter_tz = ?, ends_at = ?, updated_at = ? WHERE id = ?",
-                     (tz or row["submitter_tz"], ends_at, updated, trip_id))
+        conn.execute(
+            "UPDATE trips SET submitter_tz = ?, ends_at = ?, updated_at = ? WHERE id = ?",
+            (tz or row["submitter_tz"], ends_at, updated, trip_id),
+        )
         _insert_legs(conn, trip_id, legs)
 
 
@@ -550,8 +695,11 @@ async def create_trip(request: Request):
         owner_name = trip.name or ""
         if not owner_name:
             raise HTTPException(400, "a name is required to post without logging in")
-        if trip.uid and trip.uid.startswith("m_") and await asyncio.to_thread(
-                _verify_uid_proof, trip.uid, trip.proof):
+        if (
+            trip.uid
+            and trip.uid.startswith("m_")
+            and await asyncio.to_thread(_verify_uid_proof, trip.uid, trip.proof)
+        ):
             owner_id = trip.uid
         else:
             owner_id = _new_manual_uid()
@@ -561,8 +709,9 @@ async def create_trip(request: Request):
         manage_hash = _hash_token(manage_token)
 
     legs = await _build_legs(trip)
-    trip_id = await asyncio.to_thread(_insert_trip, owner_id, owner_name, trip.tz, legs,
-                                      manage_hash, bool(user))
+    trip_id = await asyncio.to_thread(
+        _insert_trip, owner_id, owner_name, trip.tz, legs, manage_hash, bool(user)
+    )
     resp = {"ok": True, "trip_id": trip_id}
     if manage_token:
         # Returned exactly once; the browser stores it (and the uid) locally.
@@ -571,8 +720,11 @@ async def create_trip(request: Request):
 
 
 @app.put("/api/trips/{trip_id}")
-async def edit_trip(request: Request, trip_id: int = Path(..., ge=1, le=MAX_TRIP_ID),
-                    x_manage_token: str | None = Header(default=None)):
+async def edit_trip(
+    request: Request,
+    trip_id: int = Path(..., ge=1, le=MAX_TRIP_ID),
+    x_manage_token: str | None = Header(default=None),
+):
     _check_write_rate(request)
     row, old_legs = await asyncio.to_thread(_read_trip, trip_id)
     if not row:
@@ -595,8 +747,11 @@ def _delete_trip(request: Request, trip_id: int, token: str | None) -> None:
 
 
 @app.delete("/api/trips/{trip_id}")
-def delete_trip(request: Request, trip_id: int = Path(..., ge=1, le=MAX_TRIP_ID),
-                x_manage_token: str | None = Header(default=None)):
+def delete_trip(
+    request: Request,
+    trip_id: int = Path(..., ge=1, le=MAX_TRIP_ID),
+    x_manage_token: str | None = Header(default=None),
+):
     _check_write_rate(request)
     _delete_trip(request, trip_id, x_manage_token)
     return {"ok": True}

@@ -6,9 +6,12 @@ the user's guild list and require that guild to be present, which restricts
 *logging in* to members of your one server without you needing to be a
 moderator of it. The board itself stays open.
 """
-import httpx
+
 from urllib.parse import urlencode
-from fastapi import Request, HTTPException
+
+import httpx
+from fastapi import HTTPException, Request
+
 from . import config
 
 AUTHORIZE = "https://discord.com/oauth2/authorize"

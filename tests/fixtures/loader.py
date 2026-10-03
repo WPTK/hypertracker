@@ -1,6 +1,7 @@
 """Shared helpers for the resolution tests: fixture loading, a recording mock
 upstream, and an isolated temp database. Import with `from fixtures.loader import ...`.
 """
+
 import datetime as dt
 import json
 from pathlib import Path
@@ -12,7 +13,7 @@ FIX = Path(__file__).parent
 
 
 def today() -> dt.date:
-    return dt.datetime.now(dt.timezone.utc).date()
+    return dt.datetime.now(dt.UTC).date()
 
 
 def future_date(days: int = 10) -> str:
@@ -84,7 +85,8 @@ AIRPORTS = [
 def env(tmp_path, monkeypatch):
     """Temp DB with a few airports, a fake API key, no real sleeping, and a
     clean breaker. Yields a helper with `.use(upstream)` to install a mock."""
-    from app import aerodatabox as adb, airplaneslive, config, db
+    from app import aerodatabox as adb
+    from app import airplaneslive, config, db
 
     monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "t.db"))
     monkeypatch.setattr(config, "AERODATABOX_KEY", "secret-test-key")
@@ -95,7 +97,9 @@ def env(tmp_path, monkeypatch):
         for ident, iata, name, lat, lon, city in AIRPORTS:
             c.execute(
                 "INSERT OR REPLACE INTO airports (ident,iata,name,lat,lon,type,iso_country,municipality) "
-                "VALUES (?,?,?,?,?,?,?,?)", (ident, iata, name, lat, lon, "large_airport", "US", city))
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (ident, iata, name, lat, lon, "large_airport", "US", city),
+            )
     slept = []
 
     async def fake_sleep(s):

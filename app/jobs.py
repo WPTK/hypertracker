@@ -2,6 +2,7 @@
 callsign supplier for the live-status poller, and near-term leg refresh.
 
 Every loop logs and continues on error; nothing is swallowed silently."""
+
 import asyncio
 import datetime as dt
 import logging
@@ -20,13 +21,16 @@ REFRESH_MIN_SPACING = 6 * 3600  # don't retry the same leg more often than this
 # ---------------- housekeeping ----------------
 def prune_caches() -> dict:
     t = lifecycle.now()
-    flight_ttl = max(int(config.FLIGHT_CACHE_TTL),
-                     int(getattr(config, "FLIGHT_CACHE_TTL_PAST", 0)),
-                     int(getattr(config, "FLIGHT_CACHE_TTL_NEAR", 0)))
+    flight_ttl = max(
+        int(config.FLIGHT_CACHE_TTL),
+        int(getattr(config, "FLIGHT_CACHE_TTL_PAST", 0)),
+        int(getattr(config, "FLIGHT_CACHE_TTL_NEAR", 0)),
+    )
     with db.get_conn() as conn:
         f = conn.execute("DELETE FROM flight_cache WHERE fetched_at < ?", (t - flight_ttl,)).rowcount
-        a = conn.execute("DELETE FROM aircraft_cache WHERE fetched_at < ?",
-                         (t - int(config.AIRCRAFT_CACHE_TTL),)).rowcount
+        a = conn.execute(
+            "DELETE FROM aircraft_cache WHERE fetched_at < ?", (t - int(config.AIRCRAFT_CACHE_TTL),)
+        ).rowcount
     return {"flight_cache": f, "aircraft_cache": a}
 
 
@@ -36,7 +40,9 @@ def prune_orphan_users() -> int:
     with db.get_conn() as conn:
         return conn.execute(
             "DELETE FROM users WHERE COALESCE(updated_at, 0) < ? "
-            "AND discord_id NOT IN (SELECT owner_id FROM trips)", (cutoff,)).rowcount
+            "AND discord_id NOT IN (SELECT owner_id FROM trips)",
+            (cutoff,),
+        ).rowcount
 
 
 def housekeeping_once() -> dict:
@@ -55,8 +61,13 @@ def housekeeping_once() -> dict:
         counts["users"] = prune_orphan_users()
     except Exception:
         log.exception("housekeeping: pruning orphan users failed")
-    log.info("housekeeping: purged %d trips, %d flight_cache + %d aircraft_cache rows, %d orphan users",
-             counts["trips"], counts["flight_cache"], counts["aircraft_cache"], counts["users"])
+    log.info(
+        "housekeeping: purged %d trips, %d flight_cache + %d aircraft_cache rows, %d orphan users",
+        counts["trips"],
+        counts["flight_cache"],
+        counts["aircraft_cache"],
+        counts["users"],
+    )
     return counts
 
 
@@ -84,13 +95,15 @@ _callsigns: frozenset[str] = frozenset()
 
 def compute_callsigns() -> set[str]:
     """Callsigns of legs inside [departure - 20 min, arrival + 45 min]."""
-    now_dt = dt.datetime.fromtimestamp(lifecycle.now(), dt.timezone.utc)
+    now_dt = dt.datetime.fromtimestamp(lifecycle.now(), dt.UTC)
     found: set[str] = set()
     with db.get_conn() as conn:
         rows = conn.execute(
             "SELECT l.callsign, l.dep_utc, l.arr_utc FROM legs l JOIN trips t ON t.id = l.trip_id "
             "WHERE l.callsign IS NOT NULL AND l.dep_utc IS NOT NULL AND l.arr_utc IS NOT NULL "
-            "AND t.ends_at >= ?", (lifecycle.now() - 2 * 86400,)).fetchall()
+            "AND t.ends_at >= ?",
+            (lifecycle.now() - 2 * 86400,),
+        ).fetchall()
     for r in rows:
         dep, arr = lifecycle.parse_adb_dt(r["dep_utc"]), lifecycle.parse_adb_dt(r["arr_utc"])
         if dep and arr and dep - dt.timedelta(minutes=20) <= now_dt <= arr + dt.timedelta(minutes=45):
@@ -124,10 +137,30 @@ _refresh_day: str | None = None
 _refresh_used = 0
 _refresh_last_try: dict[int, int] = {}
 
-_REFRESH_COLS = ("callsign",
-                 "dep_icao", "dep_iata", "dep_name", "dep_lat", "dep_lon", "dep_local", "dep_utc",
-                 "arr_icao", "arr_iata", "arr_name", "arr_lat", "arr_lon", "arr_local", "arr_utc",
-                 "reg", "ac_type", "ac_model", "ac_age", "ac_built", "resolved", "unverified")
+_REFRESH_COLS = (
+    "callsign",
+    "dep_icao",
+    "dep_iata",
+    "dep_name",
+    "dep_lat",
+    "dep_lon",
+    "dep_local",
+    "dep_utc",
+    "arr_icao",
+    "arr_iata",
+    "arr_name",
+    "arr_lat",
+    "arr_lon",
+    "arr_local",
+    "arr_utc",
+    "reg",
+    "ac_type",
+    "ac_model",
+    "ac_age",
+    "ac_built",
+    "resolved",
+    "unverified",
+)
 
 
 def reset_refresh_state() -> None:
@@ -138,7 +171,7 @@ def reset_refresh_state() -> None:
 
 def _budget_left() -> int:
     global _refresh_day, _refresh_used
-    today = dt.datetime.fromtimestamp(lifecycle.now(), dt.timezone.utc).date().isoformat()
+    today = dt.datetime.fromtimestamp(lifecycle.now(), dt.UTC).date().isoformat()
     if _refresh_day != today:
         _refresh_day, _refresh_used = today, 0
     return max(0, int(getattr(config, "MAX_REFRESH_PER_DAY", 40)) - _refresh_used)
@@ -147,13 +180,15 @@ def _budget_left() -> int:
 def _candidates() -> list[dict]:
     """Flight legs departing within 48h that still lack a registration."""
     t = lifecycle.now()
-    now_dt = dt.datetime.fromtimestamp(t, dt.timezone.utc)
+    now_dt = dt.datetime.fromtimestamp(t, dt.UTC)
     horizon = now_dt + dt.timedelta(hours=REFRESH_WINDOW_HOURS)
     with db.get_conn() as conn:
         rows = conn.execute(
             "SELECT l.* FROM legs l JOIN trips t ON t.id = l.trip_id "
             "WHERE l.flight_no IS NOT NULL AND l.flight_no != '' AND l.manual = 0 "
-            "AND (l.reg IS NULL OR l.reg = '') AND t.ends_at >= ? ORDER BY t.ends_at", (t,)).fetchall()
+            "AND (l.reg IS NULL OR l.reg = '') AND t.ends_at >= ? ORDER BY t.ends_at",
+            (t,),
+        ).fetchall()
     out = []
     for r in rows:
         leg = dict(r)
@@ -162,7 +197,7 @@ def _candidates() -> list[dict]:
             d = lifecycle._parse_date(leg.get("date_local"))
             if d is None:
                 continue
-            dep = dt.datetime.combine(d, dt.time(0), tzinfo=dt.timezone.utc)
+            dep = dt.datetime.combine(d, dt.time(0), tzinfo=dt.UTC)
         if now_dt - dt.timedelta(hours=3) <= dep <= horizon:
             out.append(leg)
     return out
@@ -178,8 +213,10 @@ def _apply_refresh(leg: dict, changes: dict) -> None:
         legs = [dict(r) for r in conn.execute("SELECT * FROM legs WHERE trip_id = ?", (leg["trip_id"],))]
         t = conn.execute("SELECT created_at FROM trips WHERE id = ?", (leg["trip_id"],)).fetchone()
         if t:
-            conn.execute("UPDATE trips SET ends_at = ?, updated_at = ? WHERE id = ?",
-                         (lifecycle.compute_ends_at(legs, t["created_at"]), lifecycle.now(), leg["trip_id"]))
+            conn.execute(
+                "UPDATE trips SET ends_at = ?, updated_at = ? WHERE id = ?",
+                (lifecycle.compute_ends_at(legs, t["created_at"]), lifecycle.now(), leg["trip_id"]),
+            )
 
 
 async def refresh_upcoming() -> int:
@@ -187,6 +224,7 @@ async def refresh_upcoming() -> int:
     registration yet. Bounded by MAX_REFRESH_PER_DAY. Returns legs updated."""
     global _refresh_used
     from . import resolver
+
     refresh_leg = getattr(resolver, "refresh_leg", None)
     if refresh_leg is None:
         log.info("refresh_upcoming: resolver.refresh_leg is not available; skipping")

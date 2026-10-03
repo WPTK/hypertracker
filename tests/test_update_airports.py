@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from app import config, db
@@ -7,7 +9,7 @@ HEADER = "ident,type,name,latitude_deg,longitude_deg,iso_country,municipality,ia
 
 
 def row(ident, typ="large_airport", name="N", lat="1.0", lon="2.0", cc="US", city="City", iata=""):
-    return f'{ident},{typ},{name},{lat},{lon},{cc},{city},{iata}\n'
+    return f"{ident},{typ},{name},{lat},{lon},{cc},{city},{iata}\n"
 
 
 def make_csv(rows):
@@ -23,8 +25,10 @@ def tmpdb(monkeypatch, tmp_path):
 
 def seed(ident="OLD1"):
     with db.get_conn() as c:
-        c.execute("INSERT INTO airports (ident,iata,name,lat,lon,type) VALUES (?,?,?,?,?,?)",
-                  (ident, "OLD", "Old", 1, 1, "large_airport"))
+        c.execute(
+            "INSERT INTO airports (ident,iata,name,lat,lon,type) VALUES (?,?,?,?,?,?)",
+            (ident, "OLD", "Old", 1, 1, "large_airport"),
+        )
 
 
 def idents():
@@ -34,8 +38,13 @@ def idents():
 
 def test_good_csv(tmpdb):
     seed()
-    text = make_csv([row("KJAX", iata="jax", city="Jacksonville"),
-                     row("KXYZ", "medium_airport"), row("KABC", "small_airport")])
+    text = make_csv(
+        [
+            row("KJAX", iata="jax", city="Jacksonville"),
+            row("KXYZ", "medium_airport"),
+            row("KABC", "small_airport"),
+        ]
+    )
     assert ua.load(text, min_rows=3) == 3
     assert idents() == {"KJAX", "KXYZ", "KABC"}
     a = db.find_airport("JAX")
@@ -43,21 +52,24 @@ def test_good_csv(tmpdb):
 
 
 def test_row_skipping(tmpdb):
-    text = make_csv([
-        row("GOOD"),
-        row("", iata="AAA"),              # empty ident
-        row("HELI", "heliport"),
-        row("CLSD", "closed"),
-        row("BADLAT", lat="abc"),
-        row("OOR", lat="95"),
-        row("  pad  ", "small_airport"),
-    ])
+    text = make_csv(
+        [
+            row("GOOD"),
+            row("", iata="AAA"),  # empty ident
+            row("HELI", "heliport"),
+            row("CLSD", "closed"),
+            row("BADLAT", lat="abc"),
+            row("OOR", lat="95"),
+            row("  pad  ", "small_airport"),
+        ]
+    )
     assert ua.load(text, min_rows=1) == 2
     assert idents() == {"GOOD", "PAD"}
 
 
-@pytest.mark.parametrize("text", ["", "<html><body>503 Service Unavailable</body></html>",
-                                  HEADER, make_csv([row("A1")])])
+@pytest.mark.parametrize(
+    "text", ["", "<html><body>503 Service Unavailable</body></html>", HEADER, make_csv([row("A1")])]
+)
 def test_truncated_or_garbage_aborts(tmpdb, text):
     seed()
     with pytest.raises(ua.TooFewRows):
@@ -73,11 +85,13 @@ def test_default_min_rows_is_5000(tmpdb):
 
 
 def test_duplicate_iata_deterministic(tmpdb):
-    text = make_csv([
-        row("SMALL", "small_airport", iata="DUP"),
-        row("BIGONE", "large_airport", iata="DUP"),
-        row("MED", "medium_airport", iata="DUP"),
-    ])
+    text = make_csv(
+        [
+            row("SMALL", "small_airport", iata="DUP"),
+            row("BIGONE", "large_airport", iata="DUP"),
+            row("MED", "medium_airport", iata="DUP"),
+        ]
+    )
     assert ua.load(text, min_rows=3) == 3
     assert db.find_airport("DUP")["ident"] == "BIGONE"
     with db.get_conn() as c:
@@ -86,8 +100,7 @@ def test_duplicate_iata_deterministic(tmpdb):
 
 
 def test_duplicate_ident_last_wins(tmpdb):
-    assert ua.load(make_csv([row("DUPE", name="first"), row("dupe", name="second")]),
-                   min_rows=1) == 1
+    assert ua.load(make_csv([row("DUPE", name="first"), row("dupe", name="second")]), min_rows=1) == 1
     assert db.find_airport("DUPE")["name"] == "second"
 
 
@@ -97,7 +110,7 @@ def test_atomic_on_mid_insert_failure(tmpdb, monkeypatch):
     real = ua.INSERT_SQL
     # Make the insert blow up for the whole batch after DELETE has run.
     monkeypatch.setattr(ua, "INSERT_SQL", real.replace("airports", "no_such_table"))
-    with pytest.raises(Exception):
+    with pytest.raises(sqlite3.OperationalError):
         ua.load(text, min_rows=1)
     assert idents() == {"OLD1"}
 
@@ -107,7 +120,7 @@ def test_atomic_on_row_failure(tmpdb):
     seed()
     rows, _ = ua.parse(make_csv([row("A1"), row("A2")]))
     rows.append((None,) + rows[0][1:])
-    with pytest.raises(Exception):
+    with pytest.raises(sqlite3.IntegrityError):
         with db.get_conn() as conn:
             conn.execute("DELETE FROM airports")
             conn.executemany(ua.INSERT_SQL, [rows[0], (rows[0][0],) + rows[0][1:]])  # PK clash
@@ -133,6 +146,7 @@ def test_main_download_failure(tmpdb, monkeypatch, capsys):
 
     def boom(url, timeout=0):
         raise OSError("network down")
+
     monkeypatch.setattr(ua, "fetch_csv", boom)
     assert ua.main([]) == 1
     err = capsys.readouterr().err

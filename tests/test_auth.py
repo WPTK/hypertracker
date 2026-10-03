@@ -23,8 +23,8 @@ def install(monkeypatch, handler):
         return handler(request)
 
     monkeypatch.setattr(
-        auth, "_make_client",
-        lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped), timeout=5))
+        auth, "_make_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(wrapped), timeout=5)
+    )
     return calls
 
 
@@ -42,6 +42,7 @@ def ok_handler(guilds=None):
         if p.endswith("/guilds"):
             return httpx.Response(200, json=guilds or [])
         return httpx.Response(404)
+
     return h
 
 
@@ -90,16 +91,20 @@ def test_me_429(monkeypatch):
         if r.url.path.endswith("/token"):
             return httpx.Response(200, json={"access_token": "t"})
         return httpx.Response(429, json={"message": "rate limited"})
+
     install(monkeypatch, h)
     with pytest.raises(auth.DiscordError):
         run(auth.exchange_code("c"))
 
 
-@pytest.mark.parametrize("token_resp", [
-    httpx.Response(200, text="<html>nope"),
-    httpx.Response(200, json=["x"]),
-    httpx.Response(200, json={"no": "token"}),
-])
+@pytest.mark.parametrize(
+    "token_resp",
+    [
+        httpx.Response(200, text="<html>nope"),
+        httpx.Response(200, json=["x"]),
+        httpx.Response(200, json={"no": "token"}),
+    ],
+)
 def test_bad_token_bodies(monkeypatch, token_resp):
     install(monkeypatch, lambda r: token_resp)
     with pytest.raises(auth.DiscordError):
@@ -112,6 +117,7 @@ def test_me_without_id(monkeypatch, me_body):
         if r.url.path.endswith("/token"):
             return httpx.Response(200, json={"access_token": "t"})
         return httpx.Response(200, content=json.dumps(me_body))
+
     install(monkeypatch, h)
     with pytest.raises(auth.DiscordError):
         run(auth.exchange_code("c"))
@@ -120,6 +126,7 @@ def test_me_without_id(monkeypatch, me_body):
 def test_network_error(monkeypatch):
     def h(r):
         raise httpx.ConnectError("boom https://discord.com?secret=sekrit-value")
+
     install(monkeypatch, h)
     with pytest.raises(auth.DiscordError) as ei:
         run(auth.exchange_code("c"))
@@ -133,6 +140,7 @@ def test_guilds_error_dict(monkeypatch):
         if r.url.path.endswith("/guilds"):
             return httpx.Response(200, json={"message": "401: Unauthorized", "code": 0})
         return ok_handler()(r)
+
     install(monkeypatch, h)
     res = run(auth.exchange_code("c"))
     assert res["guilds"] == [] and not auth.in_required_guild(res["guilds"])
@@ -145,6 +153,7 @@ def test_guilds_http_error(monkeypatch):
         if r.url.path.endswith("/guilds"):
             return httpx.Response(429, json={})
         return ok_handler()(r)
+
     install(monkeypatch, h)
     with pytest.raises(auth.DiscordError):
         run(auth.exchange_code("c"))
@@ -162,6 +171,7 @@ def test_more_than_200_guilds_paged(monkeypatch):
             seen_after.append(after)
             return httpx.Response(200, json=[g for g in universe if int(g["id"]) > after][:200])
         return ok_handler()(r)
+
     install(monkeypatch, h)
     res = run(auth.exchange_code("c"))
     assert len(res["guilds"]) == 450
@@ -179,6 +189,7 @@ def test_guild_paging_is_capped(monkeypatch):
             base = n["i"] * 1000
             return httpx.Response(200, json=[{"id": str(base + k)} for k in range(200)])
         return ok_handler()(r)
+
     install(monkeypatch, h)
     run(auth.exchange_code("c"))
     assert n["i"] == auth.MAX_GUILD_PAGES

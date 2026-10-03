@@ -1,21 +1,47 @@
 """POST /api/legs/preview on a throwaway FastAPI app. Offline."""
+
 import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app import config, preview
 from fixtures.loader import Upstream, env, future_date, resp  # noqa: F401
 from test_resolver import Router, aircraft_ok, multileg, single  # noqa: F401
 
+from app import config, preview
+
 D = future_date(10)
 LEG_KEYS = {
-    "direction", "seq", "date_local", "flight_no", "callsign",
-    "from", "from_iata", "from_name", "from_city", "from_lat", "from_lon",
-    "to", "to_iata", "to_name", "to_city", "to_lat", "to_lon",
-    "dep_local", "arr_local", "dep_utc", "arr_utc",
-    "reg", "ac_type", "ac_model", "ac_age", "ac_built",
-    "resolved", "manual", "unverified", "live_state", "fa_url",
+    "direction",
+    "seq",
+    "date_local",
+    "flight_no",
+    "callsign",
+    "from",
+    "from_iata",
+    "from_name",
+    "from_city",
+    "from_lat",
+    "from_lon",
+    "to",
+    "to_iata",
+    "to_name",
+    "to_city",
+    "to_lat",
+    "to_lon",
+    "dep_local",
+    "arr_local",
+    "dep_utc",
+    "arr_utc",
+    "reg",
+    "ac_type",
+    "ac_model",
+    "ac_age",
+    "ac_built",
+    "resolved",
+    "manual",
+    "unverified",
+    "live_state",
+    "fa_url",
 }
 
 
@@ -78,20 +104,23 @@ def test_mixed_rows_keep_order_and_index(api, env):
     assert res[1]["message"] == "I don't know the airport XYZ." and res[1]["leg"] is None
 
 
-@pytest.mark.parametrize("row,status", [
-    ({"kind": "flight"}, "invalid"),
-    ({"kind": "flight", "flight_no": ""}, "invalid"),
-    ({"kind": "flight", "flight_no": "1234567"}, "invalid"),
-    ({"kind": "flight", "flight_no": "../../x"}, "invalid"),
-    ({"kind": "flight", "flight_no": "DL1200", "date": "not-a-date"}, "invalid"),
-    ({"kind": "flight", "flight_no": "DL1200", "date": "1999-01-01"}, "out_of_window"),
-    ({"kind": "flight", "flight_no": "DL1200", "date": future_date(400)}, "out_of_window"),
-    ({"kind": "flight", "flight_no": "DL1200", "from": "!!"}, "invalid"),
-    ({"kind": "manual", "from": "JAX"}, "invalid"),
-    ({"kind": "manual", "to": "JAX"}, "invalid"),
-    ({"kind": "manual", "from": "JAX", "to": "jax"}, "invalid"),
-    ({"kind": "manual", "from": "J", "to": "DEN"}, "invalid"),
-])
+@pytest.mark.parametrize(
+    "row,status",
+    [
+        ({"kind": "flight"}, "invalid"),
+        ({"kind": "flight", "flight_no": ""}, "invalid"),
+        ({"kind": "flight", "flight_no": "1234567"}, "invalid"),
+        ({"kind": "flight", "flight_no": "../../x"}, "invalid"),
+        ({"kind": "flight", "flight_no": "DL1200", "date": "not-a-date"}, "invalid"),
+        ({"kind": "flight", "flight_no": "DL1200", "date": "1999-01-01"}, "out_of_window"),
+        ({"kind": "flight", "flight_no": "DL1200", "date": future_date(400)}, "out_of_window"),
+        ({"kind": "flight", "flight_no": "DL1200", "from": "!!"}, "invalid"),
+        ({"kind": "manual", "from": "JAX"}, "invalid"),
+        ({"kind": "manual", "to": "JAX"}, "invalid"),
+        ({"kind": "manual", "from": "JAX", "to": "jax"}, "invalid"),
+        ({"kind": "manual", "from": "J", "to": "DEN"}, "invalid"),
+    ],
+)
 def test_invalid_rows_never_reach_upstream(api, env, row, status):
     up = env.use(Router({"DL1200": single}))
     res = post(api, [row]).json()["results"][0]
@@ -101,6 +130,7 @@ def test_invalid_rows_never_reach_upstream(api, env, row, status):
 
 def test_missing_date_defaults_to_today(api, env):
     from fixtures.loader import today
+
     env.use(Router())
     res = post(api, [{"kind": "flight", "flight_no": "DL1200"}]).json()["results"][0]
     assert res["status"] == "not_found" and today().strftime("%b") in res["message"]
@@ -115,12 +145,15 @@ def test_ambiguous_then_repreview_with_pick(api, env):
     assert res2["status"] == "ok" and res2["leg"]["from"] == "KATL" and res2["leg"]["to"] == "KDEN"
 
 
-@pytest.mark.parametrize("item,status", [
-    ((429, {"message": "x"}), "quota"),
-    ((500, {"message": "x"}), "upstream_unavailable"),
-    ((401, {"message": "x"}), "upstream_unavailable"),
-    (httpx.ReadTimeout("t"), "upstream_unavailable"),
-])
+@pytest.mark.parametrize(
+    "item,status",
+    [
+        ((429, {"message": "x"}), "quota"),
+        ((500, {"message": "x"}), "upstream_unavailable"),
+        ((401, {"message": "x"}), "upstream_unavailable"),
+        (httpx.ReadTimeout("t"), "upstream_unavailable"),
+    ],
+)
 def test_upstream_trouble_is_a_status_not_an_error(api, env, item, status):
     env.use(Upstream(item))
     r = post(api, [flight()])
@@ -130,12 +163,23 @@ def test_upstream_trouble_is_a_status_not_an_error(api, env, item, status):
 
 
 # --- bad bodies are 400 with the contract error shape ----------------------
-@pytest.mark.parametrize("body", [
-    "not json", "[]", "null", "42", '{"rows": "x"}', '{}', '{"rows": [1]}',
-    '{"rows": [{"kind": "bogus"}]}', '{"rows": [{"kind": "flight", "flight_no": 12}]}',
-    '{"rows": [{"kind": "flight", "flight_no": "' + "A" * 500 + '"}]}',
-    '{"rows": [{"kind": "flight", "from": ["JAX"]}]}', '{"rows": [{}]}',
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        "not json",
+        "[]",
+        "null",
+        "42",
+        '{"rows": "x"}',
+        "{}",
+        '{"rows": [1]}',
+        '{"rows": [{"kind": "bogus"}]}',
+        '{"rows": [{"kind": "flight", "flight_no": 12}]}',
+        '{"rows": [{"kind": "flight", "flight_no": "' + "A" * 500 + '"}]}',
+        '{"rows": [{"kind": "flight", "from": ["JAX"]}]}',
+        '{"rows": [{}]}',
+    ],
+)
 def test_malformed_bodies_are_400(api, body):
     r = api.post("/api/legs/preview", content=body, headers={"content-type": "application/json"})
     assert r.status_code == 400
@@ -172,13 +216,13 @@ def test_rate_limit_per_ip_sliding_window(api, env, monkeypatch):
     for _ in range(3):
         assert post(api, row).status_code == 200
         t[0] += 10
-    r = post(api, row)                                   # t=1030, first hit at 1000
+    r = post(api, row)  # t=1030, first hit at 1000
     assert r.status_code == 429 and int(r.headers["Retry-After"]) >= 1
     assert r.json()["detail"]
     ip[0] = "2.2.2.2"
-    assert post(api, row).status_code == 200             # other IP unaffected
+    assert post(api, row).status_code == 200  # other IP unaffected
     ip[0] = "1.1.1.1"
-    t[0] = 1101                                          # first hit slid out of the window
+    t[0] = 1101  # first hit slid out of the window
     assert post(api, row).status_code == 200
     preview.reset_rate_limit()
     t[0] = 1102

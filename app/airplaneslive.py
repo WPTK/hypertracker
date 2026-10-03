@@ -20,13 +20,14 @@ When several aircraft share a callsign, an airborne one wins.
 Failures (429, 5xx, network, junk) never overwrite a known state and never
 store "not airborne"; they are logged at WARNING at most once a minute per kind.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import re
 import time
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 from urllib.parse import quote
 
 import httpx
@@ -35,8 +36,8 @@ from . import config
 
 log = logging.getLogger("hypertracker.airplaneslive")
 
-STATE_TTL = 300.0          # seconds a state survives without a successful refresh
-MIN_SPACING = 1.0          # seconds between request starts
+STATE_TTL = 300.0  # seconds a state survives without a successful refresh
+MIN_SPACING = 1.0  # seconds between request starts
 GS_AIRBORNE_KT = 40
 _WARN_EVERY = 60.0
 _CALLSIGN_RE = re.compile(r"^[A-Z0-9]{2,8}$")
@@ -112,9 +113,11 @@ def classify_response(aircraft: list, callsign: str | None = None) -> str | None
     """Collapse all aircraft sharing a callsign into one state; airborne wins.
     `flight` is space-padded to 8 chars upstream; entries naming a different
     callsign are ignored."""
+
     def same(a):
         f = str(a.get("flight") or "").strip().upper() if isinstance(a, dict) else ""
         return not callsign or not f or f == callsign
+
     states = {classify_aircraft(a) for a in aircraft if same(a)}
     if AIRBORNE in states:
         return AIRBORNE
@@ -153,7 +156,7 @@ async def _probe(client: httpx.AsyncClient, callsign: str) -> str | None:
     if ac is None and isinstance(data, dict):
         ac = data.get("aircraft")
     if ac is None and isinstance(data, dict):
-        ac = []            # a well-formed reply with no aircraft: not visible now
+        ac = []  # a well-formed reply with no aircraft: not visible now
     if not isinstance(ac, list):
         raise _Failure("junk")
     return classify_response(ac, callsign)
@@ -174,8 +177,13 @@ def _prune(wanted: set[str]) -> None:
             del _states[cs]
 
 
-async def poll_once(client: httpx.AsyncClient, callsigns: list[str], *,
-                    sleep: Callable = asyncio.sleep, spacing: float = MIN_SPACING) -> None:
+async def poll_once(
+    client: httpx.AsyncClient,
+    callsigns: list[str],
+    *,
+    sleep: Callable = asyncio.sleep,
+    spacing: float = MIN_SPACING,
+) -> None:
     """Probe each callsign sequentially, >= `spacing` seconds between starts.
     No lock is held while sleeping."""
     last_start: float | None = None
@@ -192,14 +200,18 @@ async def poll_once(client: httpx.AsyncClient, callsigns: list[str], *,
             if f.kind == "http":
                 _warn(f"http{f.status}", "airplanes.live returned HTTP %s for a callsign probe", f.status)
                 if f.status == 429:
-                    return          # back off: abandon this cycle
+                    return  # back off: abandon this cycle
             else:
                 _warn(f.kind, "airplanes.live probe failed (%s)", f.kind)
 
 
-async def run_poller(get_callsigns: Callable[[], Iterable[str]], interval: float = 60.0, *,
-                     client: httpx.AsyncClient | None = None,
-                     sleep: Callable = asyncio.sleep) -> None:
+async def run_poller(
+    get_callsigns: Callable[[], Iterable[str]],
+    interval: float = 60.0,
+    *,
+    client: httpx.AsyncClient | None = None,
+    sleep: Callable = asyncio.sleep,
+) -> None:
     """Loop forever. Cancellation-safe: CancelledError propagates after the
     client this function created (if any) is closed."""
     own = client is None

@@ -1,13 +1,14 @@
 """End to end through the REAL resolver and preview router (only the upstream HTTP
 is mocked): create, board payload, unverified fallback, and the preview contract."""
+
 import json
 
 import httpx
 import pytest
+from fixtures.loader import FIX, future_date
 
 from app import aerodatabox as adb
 from app import config, db
-from fixtures.loader import FIX, future_date
 
 D = future_date(10)
 
@@ -22,10 +23,15 @@ def _cx271(date: str) -> str:
 def upstream(monkeypatch):
     monkeypatch.setattr(config, "AERODATABOX_KEY", "test-key")
     with db.get_conn() as c:
-        for ident, iata, name, lat, lon in [("VHHH", "HKG", "Hong Kong Intl", 22.31, 113.91),
-                                            ("EHAM", "AMS", "Amsterdam Schiphol", 52.31, 4.76)]:
-            c.execute("INSERT OR REPLACE INTO airports (ident,iata,name,lat,lon,type,municipality) "
-                      "VALUES (?,?,?,?,?,?,?)", (ident, iata, name, lat, lon, "large_airport", name))
+        for ident, iata, name, lat, lon in [
+            ("VHHH", "HKG", "Hong Kong Intl", 22.31, 113.91),
+            ("EHAM", "AMS", "Amsterdam Schiphol", 52.31, 4.76),
+        ]:
+            c.execute(
+                "INSERT OR REPLACE INTO airports (ident,iata,name,lat,lon,type,municipality) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (ident, iata, name, lat, lon, "large_airport", name),
+            )
     state = {"flights": httpx.Response(200, json=json.loads(_cx271(D)))}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -73,9 +79,16 @@ def test_missing_date_defaults_to_today_and_never_fails(client, upstream):
 
 
 def test_preview_contract(client, upstream):
-    r = client.post("/api/legs/preview", headers={"CF-Connecting-IP": "10.9.0.2"},
-                    json={"rows": [{"kind": "flight", "flight_no": "CX271", "date": D},
-                                   {"kind": "flight", "flight_no": "nonsense", "date": D}]})
+    r = client.post(
+        "/api/legs/preview",
+        headers={"CF-Connecting-IP": "10.9.0.2"},
+        json={
+            "rows": [
+                {"kind": "flight", "flight_no": "CX271", "date": D},
+                {"kind": "flight", "flight_no": "nonsense", "date": D},
+            ]
+        },
+    )
     assert r.status_code == 200
     res = r.json()["results"]
     assert res[0]["status"] == "ok" and res[0]["leg"]["to"] == "EHAM"

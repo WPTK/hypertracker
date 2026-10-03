@@ -16,6 +16,7 @@ or empty table.
 
 Exit codes: 0 ok, 1 download/read failure, 2 too few usable rows.
 """
+
 import argparse
 import csv
 import io
@@ -74,8 +75,16 @@ def parse(rows_text: str) -> tuple[list[tuple], dict]:
         iata = (row.get("iata_code") or "").strip().upper() or None
         if ident in by_ident:
             stats["duplicate_idents"] += 1
-        by_ident[ident] = (ident, iata, row.get("name"), lat, lon, typ,
-                           row.get("iso_country"), row.get("municipality"))
+        by_ident[ident] = (
+            ident,
+            iata,
+            row.get("name"),
+            lat,
+            lon,
+            typ,
+            row.get("iso_country"),
+            row.get("municipality"),
+        )
 
     best: dict[str, tuple] = {}  # iata -> (rank, ident)
     for t in by_ident.values():
@@ -103,7 +112,8 @@ def load(rows_text: str, min_rows: int = MIN_ROWS) -> int:
     if len(rows) < min_rows:
         raise TooFewRows(
             f"only {len(rows)} usable airport rows (need at least {min_rows}); "
-            f"{stats['seen']} CSV rows seen. Existing data left untouched.")
+            f"{stats['seen']} CSV rows seen. Existing data left untouched."
+        )
     db.init_db()
     with db.get_conn() as conn:
         # sqlite3 opens an implicit transaction at the DELETE; get_conn commits
@@ -120,8 +130,9 @@ load.last_stats = {}
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Refresh the airports table from OurAirports.")
     ap.add_argument("--file", metavar="PATH", help="load a local CSV instead of downloading")
-    ap.add_argument("--min-rows", type=int, default=MIN_ROWS,
-                    help=f"abort if fewer usable rows (default {MIN_ROWS})")
+    ap.add_argument(
+        "--min-rows", type=int, default=MIN_ROWS, help=f"abort if fewer usable rows (default {MIN_ROWS})"
+    )
     args = ap.parse_args(argv)
 
     try:
@@ -135,8 +146,11 @@ def main(argv=None) -> int:
             data = fetch_csv(url)
     except Exception as e:
         src = args.file or config.AIRPORTS_CSV_URL
-        print(f"Could not read airports data from {src}: {type(e).__name__}: {e}. "
-              f"Existing airports table left untouched.", file=sys.stderr)
+        print(
+            f"Could not read airports data from {src}: {type(e).__name__}: {e}. "
+            f"Existing airports table left untouched.",
+            file=sys.stderr,
+        )
         return 1
 
     try:
@@ -145,9 +159,11 @@ def main(argv=None) -> int:
         print(f"Aborted: {e}", file=sys.stderr)
         return 2
     s = load.last_stats
-    print(f"Loaded {n} airports into {config.DB_PATH} "
-          f"(skipped {s.get('skipped', 0)}, duplicate idents {s.get('duplicate_idents', 0)}, "
-          f"duplicate IATA codes cleared {s.get('iata_cleared', 0)})")
+    print(
+        f"Loaded {n} airports into {config.DB_PATH} "
+        f"(skipped {s.get('skipped', 0)}, duplicate idents {s.get('duplicate_idents', 0)}, "
+        f"duplicate IATA codes cleared {s.get('iata_cleared', 0)})"
+    )
     return 0
 
 

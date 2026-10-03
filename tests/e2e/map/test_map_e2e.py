@@ -4,11 +4,9 @@ Self-contained: serves tests/e2e/map/harness plus app/static from a tiny local
 HTTP server, stubs OSM tiles with a generated PNG, and skips cleanly when
 Playwright or Chromium is unavailable. Never downloads browsers.
 """
-import functools
+
 import glob
 import http.server
-import json
-import os
 import re
 import struct
 import threading
@@ -40,8 +38,12 @@ def _png(w=256, h=256):
         c = struct.pack(">I", len(d)) + t + d
         return c + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
 
-    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(raw))
+        + chunk(b"IEND", b"")
+    )
 
 
 TILE = _png()
@@ -53,9 +55,9 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
         if path in ("/", "/index.html"):
             return str(HARNESS / "index.html")
         if path.startswith("/static/"):
-            return str(STATIC / path[len("/static/"):])
+            return str(STATIC / path[len("/static/") :])
         if path.startswith("/harness/"):
-            return str(HARNESS / path[len("/harness/"):])
+            return str(HARNESS / path[len("/harness/") :])
         return str(HARNESS / "__missing__")
 
     def log_message(self, *a):
@@ -72,8 +74,9 @@ def base_url():
 
 
 def _chromium_path():
-    cands = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")) + \
-        sorted(glob.glob("/opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell"))
+    cands = sorted(glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")) + sorted(
+        glob.glob("/opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell")
+    )
     return cands[0] if cands else None
 
 
@@ -82,7 +85,11 @@ def browser():
     with sync_api.sync_playwright() as p:
         exe = _chromium_path()
         try:
-            b = p.chromium.launch(executable_path=exe, args=["--no-sandbox"]) if exe else p.chromium.launch(args=["--no-sandbox"])
+            b = (
+                p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+                if exe
+                else p.chromium.launch(args=["--no-sandbox"])
+            )
         except Exception as e:  # noqa: BLE001
             pytest.skip(f"Chromium unavailable: {e}")
         yield b
@@ -111,7 +118,9 @@ def _open(browser, base_url, *, size=(1100, 800), theme="dark", tiles="ok", bloc
 
 
 def _show(page, data="SAMPLE", flt=None):
-    page.evaluate("([d, f]) => { H.m.update(H[d], f); H.m.show(); }", [data, flt or {"tok": None, "date": None}])
+    page.evaluate(
+        "([d, f]) => { H.m.update(H[d], f); H.m.show(); }", [data, flt or {"tok": None, "date": None}]
+    )
     page.wait_for_function("H.state().ready")
     page.wait_for_selector(".hmap-pin")
     page.wait_for_timeout(150)
@@ -124,7 +133,8 @@ def _inside(page, codes):
           return codes.map(c => { const l = all.find(x => x.from === c || x.to === c);
             const lat = l.from === c ? l.from_lat : l.to_lat, lon = l.from === c ? l.from_lon : l.to_lon;
             return [c, b.contains([lat, lon]) || b.contains([lat, lon + 360]) || b.contains([lat, lon - 360])]; }); }""",
-        codes)
+        codes,
+    )
 
 
 def _style(page):
@@ -191,17 +201,22 @@ def test_filter_highlight_styles(browser, base_url):
     ctx, page = _open(browser, base_url)
     _show(page)
     base = _style(page)
-    assert base["out:1:0"]["weight"] > base["out:1:1"]["weight"]            # airborne thicker than scheduled
-    assert base["ret:1:0"]["dash"] not in ("", "null") and base["out:1:0"]["dash"] in ("", "null")  # on ground dashed
+    assert base["out:1:0"]["weight"] > base["out:1:1"]["weight"]  # airborne thicker than scheduled
+    assert base["ret:1:0"]["dash"] not in ("", "null") and base["out:1:0"]["dash"] in (
+        "",
+        "null",
+    )  # on ground dashed
     page.evaluate("H.m.update(H.SAMPLE, {tok:'KDEN',date:null})")
     s = _style(page)
     hits = {k for k, v in s.items() if v["opacity"] == 1}
-    assert hits == {"out:1:1", "ret:1:0"}                                   # legs touching KDEN
+    assert hits == {"out:1:1", "ret:1:0"}  # legs touching KDEN
     dim = [v for k, v in s.items() if k not in hits]
-    assert dim and all(0 < v["opacity"] < 0.5 for v in dim)                 # de-emphasised but still visible
+    assert dim and all(0 < v["opacity"] < 0.5 for v in dim)  # de-emphasised but still visible
     assert s["out:1:1"]["weight"] > base["out:1:1"]["weight"]
     assert s["out:1:1"]["color"] != base["out:1:1"]["color"]
-    lit = page.evaluate("[...document.querySelectorAll('.hmap-pin.is-lit')].filter(n => n.getAttribute('aria-hidden') !== 'true').map(n => n.getAttribute('aria-label').slice(0,4)).sort()")
+    lit = page.evaluate(
+        "[...document.querySelectorAll('.hmap-pin.is-lit')].filter(n => n.getAttribute('aria-hidden') !== 'true').map(n => n.getAttribute('aria-label').slice(0,4)).sort()"
+    )
     assert lit == ["KATL", "KDEN", "KJAX"]
     page.evaluate("H.m.update(H.SAMPLE, {tok:null,date:'2026-10-11'})")
     s = _style(page)
@@ -253,7 +268,7 @@ def test_theme_filter_only_on_tiles(browser, base_url):
     page.evaluate("H.setPage('light')")
     page.wait_for_timeout(100)
     assert page.evaluate(f, ".leaflet-tile-pane") == "none"
-    assert _style(page)["out:1:1"]["color"] != dark                          # colours re-read per theme
+    assert _style(page)["out:1:1"]["color"] != dark  # colours re-read per theme
     page.evaluate("H.setPage('dark')")
     assert "invert" in page.evaluate(f, ".leaflet-tile-pane")
     ctx.close()
@@ -290,13 +305,15 @@ def test_dateline_arcs_have_no_world_spanning_segment(browser, base_url):
     assert anti and all(x == x and abs(x) < 1e6 for p in anti for x in p)
 
     _show(page, "DATELINE")
-    d = page.evaluate("[...document.querySelectorAll('.leaflet-overlay-pane path')].map(p => p.getAttribute('d'))")
+    d = page.evaluate(
+        "[...document.querySelectorAll('.leaflet-overlay-pane path')].map(p => p.getAttribute('d'))"
+    )
     zoom = page.evaluate("H.state().zoom")
-    half_world_px = 256 * (2 ** zoom) / 2
+    half_world_px = 256 * (2**zoom) / 2
     assert len(d) == 2
     for path_d in d:
         subs = [s for s in path_d.split("M") if s.strip()]
-        assert 1 <= len(subs) <= 3                                           # world copies (offscreen ones are clipped)
+        assert 1 <= len(subs) <= 3  # world copies (offscreen ones are clipped)
         for sub in subs:
             xs = [float(m) for m in re.findall(r"[ML]?\s*(-?[\d.]+)[ ,]", sub + " ")][::2]
             assert max(abs(xs[i + 1] - xs[i]) for i in range(len(xs) - 1)) < half_world_px
@@ -309,7 +326,7 @@ def test_tile_failures_show_notice(browser, base_url):
     _show(page)
     page.locator(".hmap__notice").wait_for(state="visible", timeout=10000)
     assert page.locator(".hmap__notice").get_attribute("role") == "status"
-    assert page.locator(".hmap-pin").count() > 0                             # still usable
+    assert page.locator(".hmap-pin").count() > 0  # still usable
     ctx.close()
 
 

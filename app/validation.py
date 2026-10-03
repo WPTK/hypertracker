@@ -1,5 +1,6 @@
 """Pure input validators shared by the API and the resolver. No I/O, no config
 imports, so they are trivially unit-testable and safe to import anywhere."""
+
 import datetime as dt
 import re
 
@@ -9,8 +10,8 @@ _IATA_RE = re.compile(r"^(?=[A-Z0-9]{0,1}[A-Z])[A-Z0-9]{2}\d{1,4}[A-Z]?$")
 _ICAO_RE = re.compile(r"^[A-Z]{3}\d{1,4}[A-Z]?$")
 _AIRPORT_RE = re.compile(r"^[A-Z0-9]{3,4}$")
 
-DEFAULT_PAST_DAYS = 2        # allow a flight that already left today / yesterday
-DEFAULT_FUTURE_DAYS = 330    # [verify] AeroDataBox schedule horizon
+DEFAULT_PAST_DAYS = 2  # allow a flight that already left today / yesterday
+DEFAULT_FUTURE_DAYS = 330  # [verify] AeroDataBox schedule horizon
 
 
 def normalize_flight_no(s: str | None) -> str:
@@ -29,9 +30,12 @@ def normalize_airport_code(s: str | None) -> str | None:
     return n if _AIRPORT_RE.match(n) else None
 
 
-def validate_leg_date(raw: str | None, today: dt.date,
-                      past_days: int = DEFAULT_PAST_DAYS,
-                      future_days: int = DEFAULT_FUTURE_DAYS) -> tuple[str | None, str | None]:
+def validate_leg_date(
+    raw: str | None,
+    today: dt.date,
+    past_days: int = DEFAULT_PAST_DAYS,
+    future_days: int = DEFAULT_FUTURE_DAYS,
+) -> tuple[str | None, str | None]:
     """Return (iso_date, error). A missing date defaults to `today`, so adding a
     flight never fails for lack of one. Garbage or out-of-window dates give an
     error message suitable for showing to the user."""

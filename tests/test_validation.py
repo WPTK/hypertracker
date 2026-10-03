@@ -12,7 +12,9 @@ def test_valid_flight_numbers(s):
     assert v.is_valid_flight_no(s)
 
 
-@pytest.mark.parametrize("s", ["", "D", "1200", "DL", "11200", "../../x", "DL1200/x", "DL12345", "DAL", "D L"])
+@pytest.mark.parametrize(
+    "s", ["", "D", "1200", "DL", "11200", "../../x", "DL1200/x", "DL12345", "DAL", "D L"]
+)
 def test_invalid_flight_numbers(s):
     assert not v.is_valid_flight_no(s)
 

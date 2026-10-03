@@ -1,5 +1,6 @@
 """Everything under tests/e2e is a browser test: mark it so CI can select it with
 `-m e2e` and the fast job can exclude it with `-m "not e2e"`."""
+
 from pathlib import Path
 
 import pytest

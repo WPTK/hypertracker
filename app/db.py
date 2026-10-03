@@ -1,8 +1,10 @@
 """SQLite persistence. Plain stdlib sqlite3 — no ORM, low volume, easy to read."""
-import sqlite3
+
 import json
+import sqlite3
 import time
 from contextlib import contextmanager
+
 from . import config
 
 SCHEMA_V1 = """
@@ -130,8 +132,10 @@ def _m2_lifecycle(conn):
     # Backfill NULL ends_at (and any junk) before the constraint exists.
     for t in conn.execute("SELECT id, created_at FROM trips WHERE ends_at IS NULL").fetchall():
         legs = [dict(l) for l in conn.execute("SELECT * FROM legs WHERE trip_id = ?", (t["id"],)).fetchall()]
-        conn.execute("UPDATE trips SET ends_at = ? WHERE id = ?",
-                     (lifecycle.compute_ends_at(legs, t["created_at"]), t["id"]))
+        conn.execute(
+            "UPDATE trips SET ends_at = ? WHERE id = ?",
+            (lifecycle.compute_ends_at(legs, t["created_at"]), t["id"]),
+        )
 
     has_updated = "updated_at" in _cols(conn, "trips")
     conn.execute("DROP TABLE IF EXISTS trips_new")
@@ -144,11 +148,14 @@ def _m2_lifecycle(conn):
         " created_at   INTEGER NOT NULL,"
         " manage_token TEXT,"
         " ends_at      INTEGER NOT NULL,"
-        " updated_at   INTEGER NOT NULL DEFAULT 0)")
+        " updated_at   INTEGER NOT NULL DEFAULT 0)"
+    )
     conn.execute(
         "INSERT INTO trips_new (id, owner_id, owner_name, submitter_tz, created_at, manage_token, ends_at, updated_at) "
         "SELECT id, owner_id, owner_name, submitter_tz, created_at, manage_token, ends_at, "
-        + ("COALESCE(updated_at, created_at)" if has_updated else "created_at") + " FROM trips")
+        + ("COALESCE(updated_at, created_at)" if has_updated else "created_at")
+        + " FROM trips"
+    )
     conn.execute("DROP TABLE trips")
     conn.execute("ALTER TABLE trips_new RENAME TO trips")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_trips_ends ON trips(ends_at)")
@@ -193,11 +200,20 @@ def migrate(conn):
 
 
 # --- caches ---
+_CACHE_TABLES = {"flight_cache": "cache_key", "aircraft_cache": "reg"}
+
+
+def _check_cache_table(table: str, key_col: str) -> None:
+    """Table and column names are interpolated into SQL, so only the known cache
+    tables are allowed (values always go through placeholders)."""
+    if _CACHE_TABLES.get(table) != key_col:
+        raise ValueError(f"unknown cache table {table!r}/{key_col!r}")
+
+
 def cache_get(table: str, key_col: str, key: str, ttl: int):
+    _check_cache_table(table, key_col)
     with get_conn() as conn:
-        row = conn.execute(
-            f"SELECT payload, fetched_at FROM {table} WHERE {key_col} = ?", (key,)
-        ).fetchone()
+        row = conn.execute(f"SELECT payload, fetched_at FROM {table} WHERE {key_col} = ?", (key,)).fetchone()
     if not row:
         return None
     if time.time() - row["fetched_at"] > ttl:
@@ -209,6 +225,7 @@ def cache_get(table: str, key_col: str, key: str, ttl: int):
 
 
 def cache_put(table: str, key_col: str, key: str, payload: dict):
+    _check_cache_table(table, key_col)
     with get_conn() as conn:
         conn.execute(
             f"INSERT INTO {table} ({key_col}, payload, fetched_at) VALUES (?,?,?) "
@@ -229,8 +246,10 @@ def upsert_user(discord_id: str, username: str, tz: str | None = None):
 
 
 # --- airports ---
-_TYPE_RANK = ("CASE type WHEN 'large_airport' THEN 0 WHEN 'medium_airport' THEN 1 "
-              "WHEN 'small_airport' THEN 2 ELSE 3 END")
+_TYPE_RANK = (
+    "CASE type WHEN 'large_airport' THEN 0 WHEN 'medium_airport' THEN 1 "
+    "WHEN 'small_airport' THEN 2 ELSE 3 END"
+)
 
 
 def find_airport(code: str):

@@ -12,6 +12,7 @@ Rules, written once:
 This module must not import the resolver at import time (the resolver imports
 db, and db's migrations import this module lazily).
 """
+
 import datetime as dt
 import time
 from urllib.parse import quote
@@ -37,8 +38,8 @@ def parse_adb_dt(value: str | None):
     try:
         d = dt.datetime.fromisoformat(v)
         if d.tzinfo is None:
-            d = d.replace(tzinfo=dt.timezone.utc)
-        return d.astimezone(dt.timezone.utc)
+            d = d.replace(tzinfo=dt.UTC)
+        return d.astimezone(dt.UTC)
     except (ValueError, TypeError):
         return None
 
@@ -59,7 +60,7 @@ def leg_ends_at(leg: dict, created_at: int) -> int:
         return int(arr.timestamp())
     d = _parse_date(leg.get("date_local"))
     if d:
-        end_of_day = dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0), tzinfo=dt.timezone.utc)
+        end_of_day = dt.datetime.combine(d + dt.timedelta(days=1), dt.time(0), tzinfo=dt.UTC)
         return int(end_of_day.timestamp()) + LEG_DATE_SLACK_HOURS * 3600
     return int(created_at) + NO_DATE_FALLBACK_DAYS * _DAY
 
@@ -105,25 +106,39 @@ def _live_state(leg: dict, now_dt: dt.datetime) -> str | None:
 def shape_trip(trip_row: dict, leg_rows: list, cities: dict | None = None) -> dict:
     """Public shape of one trip. Pure CPU / in-memory: no network, no DB."""
     cities = cities or {}
-    now_dt = dt.datetime.fromtimestamp(now(), dt.timezone.utc)
+    now_dt = dt.datetime.fromtimestamp(now(), dt.UTC)
     out, ret = [], []
     for r in leg_rows:
         l = dict(r)
         item = {
-            "direction": l["direction"], "seq": l["seq"],
-            "date_local": l["date_local"], "flight_no": l["flight_no"],
+            "direction": l["direction"],
+            "seq": l["seq"],
+            "date_local": l["date_local"],
+            "flight_no": l["flight_no"],
             "callsign": l["callsign"],
-            "from": l["dep_icao"], "from_iata": l["dep_iata"], "from_name": l["dep_name"],
+            "from": l["dep_icao"],
+            "from_iata": l["dep_iata"],
+            "from_name": l["dep_name"],
             "from_city": cities.get(l["dep_icao"]),
-            "from_lat": l["dep_lat"], "from_lon": l["dep_lon"],
-            "to": l["arr_icao"], "to_iata": l["arr_iata"], "to_name": l["arr_name"],
+            "from_lat": l["dep_lat"],
+            "from_lon": l["dep_lon"],
+            "to": l["arr_icao"],
+            "to_iata": l["arr_iata"],
+            "to_name": l["arr_name"],
             "to_city": cities.get(l["arr_icao"]),
-            "to_lat": l["arr_lat"], "to_lon": l["arr_lon"],
-            "dep_local": l["dep_local"], "arr_local": l["arr_local"],
-            "dep_utc": l["dep_utc"], "arr_utc": l["arr_utc"],
-            "reg": l["reg"], "ac_type": l["ac_type"], "ac_model": l["ac_model"],
-            "ac_age": l["ac_age"], "ac_built": l["ac_built"],
-            "resolved": bool(l["resolved"]), "manual": bool(l["manual"]),
+            "to_lat": l["arr_lat"],
+            "to_lon": l["arr_lon"],
+            "dep_local": l["dep_local"],
+            "arr_local": l["arr_local"],
+            "dep_utc": l["dep_utc"],
+            "arr_utc": l["arr_utc"],
+            "reg": l["reg"],
+            "ac_type": l["ac_type"],
+            "ac_model": l["ac_model"],
+            "ac_age": l["ac_age"],
+            "ac_built": l["ac_built"],
+            "resolved": bool(l["resolved"]),
+            "manual": bool(l["manual"]),
             "unverified": bool(l.get("unverified")),
             "live_state": _live_state(l, now_dt),
             "fa_url": fa_url(l["callsign"], l["flight_no"]),
@@ -146,7 +161,8 @@ def active_trips_sync() -> list[dict]:
     cutoff = _active_cutoff()
     with db.get_conn() as conn:
         trips = conn.execute(
-            "SELECT * FROM trips WHERE ends_at >= ? ORDER BY created_at DESC, id DESC", (cutoff,),
+            "SELECT * FROM trips WHERE ends_at >= ? ORDER BY created_at DESC, id DESC",
+            (cutoff,),
         ).fetchall()
         ids = [t["id"] for t in trips]
         legs_by_trip: dict[int, list] = {i: [] for i in ids}
@@ -160,7 +176,8 @@ def active_trips_sync() -> list[dict]:
         for chunk in _chunks(sorted(codes), 500):
             ph = ",".join("?" * len(chunk))
             for a in conn.execute(
-                    f"SELECT ident, municipality FROM airports WHERE ident IN ({ph})", chunk).fetchall():
+                f"SELECT ident, municipality FROM airports WHERE ident IN ({ph})", chunk
+            ).fetchall():
                 if a["municipality"]:
                     cities[a["ident"]] = a["municipality"]
     return [shape_trip(dict(t), legs_by_trip[t["id"]], cities) for t in trips]
@@ -169,11 +186,12 @@ def active_trips_sync() -> list[dict]:
 def _chunks(seq, n):
     seq = list(seq)
     for i in range(0, len(seq), n):
-        yield seq[i:i + n]
+        yield seq[i : i + n]
 
 
 async def active_trips() -> list[dict]:
     import asyncio
+
     return await asyncio.to_thread(active_trips_sync)
 
 

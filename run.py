@@ -9,15 +9,20 @@ whatever the peer sends; in dev there is no proxy, so a browser could spoof its
 IP and dodge per-IP limits. The app does its own trusted-proxy handling
 (TRUSTED_PROXY in .env), so production does not use the flag either.
 """
+
 import argparse
 
 import uvicorn
+
 from app import config
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Run the dev server.")
-    ap.add_argument("--proxy-headers", action="store_true",
-                    help="trust X-Forwarded-* from the peer (only behind a proxy you control)")
+    ap.add_argument(
+        "--proxy-headers",
+        action="store_true",
+        help="trust X-Forwarded-* from the peer (only behind a proxy you control)",
+    )
     args = ap.parse_args()
     uvicorn.run(
         "app.main:app",

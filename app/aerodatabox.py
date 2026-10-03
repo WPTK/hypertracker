@@ -12,6 +12,7 @@ Design rules
   * A circuit breaker stops us burning quota after a 401/403 (300s) or 429 (60s).
   * Every path segment is percent-quoted; the API key is never logged.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,12 +40,13 @@ KIND_BAD_PAYLOAD = "bad_payload"
 
 BREAKER_SECONDS = {KIND_BAD_KEY: 300.0, KIND_QUOTA: 60.0}
 _CACHE_VERSION = "v3"
-_FOREVER = 10 ** 10      # cache_get ttl; real expiry lives in the payload wrapper
+_FOREVER = 10**10  # cache_get ttl; real expiry lives in the payload wrapper
 _BODY_LOG_CHARS = 200
 
 
 class UpstreamError(Exception):
     """Base class for every typed upstream failure."""
+
     kind = KIND_DOWN
 
     def __init__(self, message: str = "", status: int | None = None):
@@ -223,8 +225,7 @@ async def _request(path: str, params: dict | None = None):
             await _sleep(random.uniform(0.2, 0.6))
             _check_breaker()
         try:
-            r = await get_client().get(url, headers=_headers(), params=params or {},
-                                       timeout=_timeout())
+            r = await get_client().get(url, headers=_headers(), params=params or {}, timeout=_timeout())
         except httpx.HTTPError as e:
             _warn(path, type(e).__name__)
             last = UpstreamDown(type(e).__name__)
@@ -236,7 +237,7 @@ async def _request(path: str, params: dict | None = None):
                 return r.json()
             except ValueError:
                 _warn(path, code, r.text)
-                raise BadPayload("not JSON", code)
+                raise BadPayload("not JSON", code) from None
         if code in (204, 404):
             log.info("AeroDataBox %s -> %s (nothing found)", path, code)
             raise _NoContent()
@@ -269,7 +270,8 @@ def validate_flights_payload(data) -> list:
         raise BadPayload("not a flight list")
     for item in data:
         if not isinstance(item, dict) or not (
-                isinstance(item.get("departure"), dict) or isinstance(item.get("arrival"), dict)):
+            isinstance(item.get("departure"), dict) or isinstance(item.get("arrival"), dict)
+        ):
             raise BadPayload("flight without departure/arrival")
     return data
 
@@ -286,8 +288,8 @@ def parse_adb_dt(value) -> dt.datetime | None:
     except ValueError:
         return None
     if d.tzinfo is None:
-        d = d.replace(tzinfo=dt.timezone.utc)
-    return d.astimezone(dt.timezone.utc)
+        d = d.replace(tzinfo=dt.UTC)
+    return d.astimezone(dt.UTC)
 
 
 def _sched(f: dict, side: str, which: str):
@@ -315,7 +317,7 @@ def _is_completed(flights: list, now: float) -> bool:
     """True when every flight in the list landed more than 3h ago."""
     if not flights:
         return False
-    cutoff = dt.datetime.fromtimestamp(now - 3 * 3600, dt.timezone.utc)
+    cutoff = dt.datetime.fromtimestamp(now - 3 * 3600, dt.UTC)
     for f in flights:
         arr = _arr_utc(f)
         if arr is None or arr > cutoff:
@@ -366,8 +368,8 @@ async def fetch_flights(flight_no: str, date_local: str, *, use_cache: bool = Tr
     path = f"/flights/Number/{quote(flight_no, safe='')}/{quote(date_local, safe='')}"
     params = {
         "withAircraftImage": "false",
-        "withLocation": "false",         # airport lat/lon come back regardless
-        "dateLocalRole": "Departure",     # disambiguate overnight flights
+        "withLocation": "false",  # airport lat/lon come back regardless
+        "dateLocalRole": "Departure",  # disambiguate overnight flights
     }
     try:
         flights = validate_flights_payload(await _request(path, params))
@@ -378,8 +380,9 @@ async def fetch_flights(flight_no: str, date_local: str, *, use_cache: bool = Tr
             log.warning("AeroDataBox %s: rejected payload (%s)", path, e)
         return FlightsResult(e.kind, status=e.status)
     if not flights:
-        await _cache_write("flight_cache", "cache_key", key, [],
-                           getattr(config, "FLIGHT_NEGATIVE_TTL", 600), neg=True)
+        await _cache_write(
+            "flight_cache", "cache_key", key, [], getattr(config, "FLIGHT_NEGATIVE_TTL", 600), neg=True
+        )
         return FlightsResult(KIND_NO_FLIGHTS)
     near = getattr(config, "FLIGHT_CACHE_TTL_NEAR", 21600)
     past = getattr(config, "FLIGHT_CACHE_TTL_PAST", 2592000)
@@ -391,10 +394,10 @@ async def fetch_flights(flight_no: str, date_local: str, *, use_cache: bool = Tr
 # --- picking the right leg ---------------------------------------------------
 @dataclass
 class Pick:
-    kind: str                                  # found | ambiguous | not_found
+    kind: str  # found | ambiguous | not_found
     flight: dict | None = None
-    candidates: list = field(default_factory=list)   # raw flight dicts
-    reason: str | None = None                  # no_date_match | route_mismatch
+    candidates: list = field(default_factory=list)  # raw flight dicts
+    reason: str | None = None  # no_date_match | route_mismatch
     other_dates: list = field(default_factory=list)  # adjacent dates, for messages
 
 
@@ -405,7 +408,7 @@ def airport_codes(f: dict, side: str) -> set:
 
 def _sort_key(f: dict):
     d = _dep_utc(f)
-    return (d is None, d or dt.datetime.max.replace(tzinfo=dt.timezone.utc), dep_local_date(f))
+    return (d is None, d or dt.datetime.max.replace(tzinfo=dt.UTC), dep_local_date(f))
 
 
 def _dedupe(flights: list) -> list:
@@ -421,7 +424,9 @@ def _dedupe(flights: list) -> list:
         if key not in best:
             best[key] = f
             order.append(key)
-        elif best[key].get("codeshareStatus") == "IsCodeshared" and f.get("codeshareStatus") != "IsCodeshared":
+        elif (
+            best[key].get("codeshareStatus") == "IsCodeshared" and f.get("codeshareStatus") != "IsCodeshared"
+        ):
             best[key] = f
     return [best[k] for k in order]
 
@@ -438,8 +443,9 @@ def _matches(f: dict, dep_hint, arr_hint) -> bool:
     return True
 
 
-def _pick_flight(flights: list, date_local: str,
-                 dep_hint: str | None = None, arr_hint: str | None = None) -> Pick:
+def _pick_flight(
+    flights: list, date_local: str, dep_hint: str | None = None, arr_hint: str | None = None
+) -> Pick:
     """Choose one leg, or say why we can't. Pure function.
 
     * Only legs whose departure-local date equals `date_local` qualify. There is
@@ -473,9 +479,14 @@ def _pick_flight(flights: list, date_local: str,
     return Pick("ambiguous", candidates=matching)
 
 
-async def flight_by_number(flight_no: str, date_local: str,
-                           dep_hint: str | None = None, arr_hint: str | None = None,
-                           *, use_cache: bool = True):
+async def flight_by_number(
+    flight_no: str,
+    date_local: str,
+    dep_hint: str | None = None,
+    arr_hint: str | None = None,
+    *,
+    use_cache: bool = True,
+):
     """Fetch + pick. Returns (FlightsResult, Pick | None); Pick is None unless ok."""
     res = await fetch_flights(flight_no, date_local, use_cache=use_cache)
     if not res.ok:
@@ -491,9 +502,9 @@ async def flight_by_number(flight_no: str, date_local: str,
 # There is NO typeCode field. `model` is a short code ('A359'); `typeName` is the
 # full name ('Airbus A350-900'). Null fields are omitted from the JSON.
 _AIRCRAFT_MAP = {
-    "type": ("icaoCode", "modelCode"),                 # first present wins
-    "model": ("typeName", "model"),                    # prefer the full name
-    "age_years": ("ageYears",),                        # used only when no date works
+    "type": ("icaoCode", "modelCode"),  # first present wins
+    "model": ("typeName", "model"),  # prefer the full name
+    "age_years": ("ageYears",),  # used only when no date works
     "dates": ("rolloutDate", "firstFlightDate", "deliveryDate", "registrationDate"),
 }
 MAX_AGE_YEARS = 80
@@ -522,11 +533,14 @@ def map_aircraft(rec: dict, today: dt.date | None = None) -> dict:
     {ac_type, ac_model, ac_age, ac_built}. Age comes from the first usable date
     (rollout, first flight, delivery, registration: a freighter conversion makes
     firstFlightDate misleading), else numeric ageYears; clamped to [0, 80]."""
-    today = today or dt.datetime.fromtimestamp(_now(), dt.timezone.utc).date()
+    today = today or dt.datetime.fromtimestamp(_now(), dt.UTC).date()
     rec = rec if isinstance(rec, dict) else {}
-    out = {"ac_type": _first_str(rec, _AIRCRAFT_MAP["type"]),
-           "ac_model": _first_str(rec, _AIRCRAFT_MAP["model"]),
-           "ac_age": None, "ac_built": None}
+    out = {
+        "ac_type": _first_str(rec, _AIRCRAFT_MAP["type"]),
+        "ac_model": _first_str(rec, _AIRCRAFT_MAP["model"]),
+        "ac_age": None,
+        "ac_built": None,
+    }
     for name in _AIRCRAFT_MAP["dates"]:
         v = rec.get(name)
         built = _parse_build_date(v) if isinstance(v, str) else None
@@ -562,8 +576,9 @@ async def aircraft_by_reg(reg: str, *, use_cache: bool = True) -> dict | None:
     try:
         rec = await _request(path)
     except _NoContent:
-        await _cache_write("aircraft_cache", "reg", reg, {},
-                           getattr(config, "FLIGHT_NEGATIVE_TTL", 600), neg=True)
+        await _cache_write(
+            "aircraft_cache", "reg", reg, {}, getattr(config, "FLIGHT_NEGATIVE_TTL", 600), neg=True
+        )
         return None
     except UpstreamError:
         return None

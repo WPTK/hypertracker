@@ -1,4 +1,5 @@
 """Numbered migrations: a v0 database with NULL ends_at rows is upgraded in place."""
+
 import sqlite3
 
 import pytest
@@ -36,8 +37,13 @@ def make_v0(path, with_old_columns=True):
             "CREATE TABLE aircraft_cache (reg TEXT PRIMARY KEY, payload TEXT NOT NULL, fetched_at INTEGER NOT NULL);"
             "CREATE TABLE users (discord_id TEXT PRIMARY KEY, username TEXT NOT NULL, tz TEXT, updated_at INTEGER);"
             "CREATE TABLE airports (ident TEXT PRIMARY KEY, iata TEXT, name TEXT, lat REAL, lon REAL, type TEXT, "
-            "iso_country TEXT, municipality TEXT);")
-    cols = "(owner_id, owner_name, created_at, ends_at)" if with_old_columns else "(owner_id, owner_name, created_at)"
+            "iso_country TEXT, municipality TEXT);"
+        )
+    cols = (
+        "(owner_id, owner_name, created_at, ends_at)"
+        if with_old_columns
+        else "(owner_id, owner_name, created_at)"
+    )
     ph = "(?,?,?,?)" if with_old_columns else "(?,?,?)"
 
     def trip(owner, ends=None):
@@ -45,18 +51,20 @@ def make_v0(path, with_old_columns=True):
         return conn.execute(f"INSERT INTO trips {cols} VALUES {ph}", args).lastrowid
 
     def leg(tid, seq, **kw):
-        conn.execute("INSERT INTO legs (trip_id, direction, seq, date_local, arr_utc, flight_no, manual) "
-                     "VALUES (?, 'out', ?, ?, ?, ?, ?)",
-                     (tid, seq, kw.get("date"), kw.get("arr"), kw.get("fn"), kw.get("manual", 0)))
+        conn.execute(
+            "INSERT INTO legs (trip_id, direction, seq, date_local, arr_utc, flight_no, manual) "
+            "VALUES (?, 'out', ?, ?, ?, ?, ?)",
+            (tid, seq, kw.get("date"), kw.get("arr"), kw.get("fn"), kw.get("manual", 0)),
+        )
 
-    t_manual = trip("manual")                         # NULL ends_at, manual leg with a date
+    t_manual = trip("manual")  # NULL ends_at, manual leg with a date
     leg(t_manual, 0, date="2025-01-01", manual=1)
-    t_mixed = trip("mixed")                           # NULL ends_at, resolved leg + later manual leg
+    t_mixed = trip("mixed")  # NULL ends_at, resolved leg + later manual leg
     leg(t_mixed, 0, date="2025-03-01", arr="2025-03-01 16:00Z", fn="DL1")
     leg(t_mixed, 1, date="2025-03-10", manual=1)
-    t_nodate = trip("nodate")                         # NULL ends_at, no usable date at all
+    t_nodate = trip("nodate")  # NULL ends_at, no usable date at all
     leg(t_nodate, 0)
-    t_empty = trip("empty")                           # NULL ends_at, no legs
+    t_empty = trip("empty")  # NULL ends_at, no legs
     t_ok = trip("ok", ends=1_800_000_000 if with_old_columns else None)
     leg(t_ok, 0, date="2027-01-01", arr="2027-01-15 10:00Z")
     conn.execute("INSERT INTO flight_cache VALUES ('k','{}',1)")
@@ -67,7 +75,8 @@ def make_v0(path, with_old_columns=True):
 
 def ts(s):
     import datetime as dt
-    return int(dt.datetime.fromisoformat(s).replace(tzinfo=dt.timezone.utc).timestamp())
+
+    return int(dt.datetime.fromisoformat(s).replace(tzinfo=dt.UTC).timestamp())
 
 
 @pytest.fixture
@@ -97,11 +106,11 @@ def test_v0_with_null_ends_at_is_backfilled(dbfile, old_columns):
     assert all(v is not None for v in ends.values())
     day_slack = 36 * 3600 + 86400
     assert ends[ids["manual"]] == ts("2025-01-01T00:00:00") + day_slack
-    assert ends[ids["mixed"]] == ts("2025-03-10T00:00:00") + day_slack     # max over ALL legs
+    assert ends[ids["mixed"]] == ts("2025-03-10T00:00:00") + day_slack  # max over ALL legs
     assert ends[ids["nodate"]] == CREATED + 3 * 86400
     assert ends[ids["empty"]] == CREATED + 3 * 86400
     if old_columns:
-        assert ends[ids["ok"]] == 1_800_000_000                            # existing value untouched
+        assert ends[ids["ok"]] == 1_800_000_000  # existing value untouched
     else:
         assert ends[ids["ok"]] == ts("2027-01-15T10:00:00")
 
@@ -109,7 +118,7 @@ def test_v0_with_null_ends_at_is_backfilled(dbfile, old_columns):
 def test_migration_keeps_data_and_adds_columns(dbfile):
     ids = make_v0(dbfile)
     db.init_db()
-    assert len(rows(dbfile, "SELECT * FROM legs")) == 5                    # legs survived the trips rebuild
+    assert len(rows(dbfile, "SELECT * FROM legs")) == 5  # legs survived the trips rebuild
     assert rows(dbfile, "SELECT COUNT(*) FROM flight_cache")[0][0] == 1
     cols = {r["name"]: r for r in rows(dbfile, "PRAGMA table_info(trips)")}
     assert cols["ends_at"]["notnull"] == 1 and "updated_at" in cols
@@ -155,6 +164,7 @@ def test_failed_migration_rolls_back(dbfile, monkeypatch):
     def explode(conn):
         conn.execute("ALTER TABLE legs ADD COLUMN junk TEXT")
         raise RuntimeError("boom")
+
     monkeypatch.setattr(db, "MIGRATIONS", [(1, db._m1_base_schema), (2, explode)])
     with pytest.raises(RuntimeError):
         db.init_db()
@@ -184,6 +194,7 @@ def test_busy_timeout_set_before_journal_mode(monkeypatch, dbfile):
         @row_factory.setter
         def row_factory(self, v):
             self._c.row_factory = v
+
     monkeypatch.setattr(sqlite3, "connect", lambda *a, **k: Spy(real(*a, **k)))
     with db.get_conn():
         pass
@@ -192,4 +203,7 @@ def test_busy_timeout_set_before_journal_mode(monkeypatch, dbfile):
 
 
 def test_compute_ends_at_used_by_backfill_matches_runtime_rule():
-    assert compute_ends_at([{"date_local": "2025-01-01"}], CREATED) == ts("2025-01-01T00:00:00") + 36 * 3600 + 86400
+    assert (
+        compute_ends_at([{"date_local": "2025-01-01"}], CREATED)
+        == ts("2025-01-01T00:00:00") + 36 * 3600 + 86400
+    )
