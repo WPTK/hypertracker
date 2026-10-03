@@ -36,7 +36,11 @@ def _gated() -> bool:
     return bool(config.DISCORD_GUILD_ID)
 
 
-def login_url(state: str) -> str:
+# What Discord sends back for prompt=none when the person has not approved the app yet.
+SILENT_LOGIN_ERRORS = frozenset({"consent_required", "interaction_required", "login_required"})
+
+
+def login_url(state: str, *, silent: bool = True) -> str:
     """Authorization URL. `state` is a per-attempt CSRF token: stored in the
     session at /login and verified at /auth/callback, so a login can only
     complete if it started here (prevents login-CSRF)."""
@@ -45,9 +49,12 @@ def login_url(state: str) -> str:
         "redirect_uri": config.DISCORD_REDIRECT_URI,
         "response_type": "code",
         "scope": "identify guilds" if _gated() else "identify",
-        "prompt": "none",
         "state": state,
     }
+    if silent:
+        # No screen for people who already approved the app. Anyone new gets Discord's
+        # consent page instead: see the callback.
+        params["prompt"] = "none"
     return f"{AUTHORIZE}?{urlencode(params)}"
 
 

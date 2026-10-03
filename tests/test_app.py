@@ -211,7 +211,7 @@ def test_login_unavailable_when_not_configured(monkeypatch):
     monkeypatch.setattr(auth_mod, "is_configured", lambda: False, raising=False)
     r = TestClient(app).get("/login", follow_redirects=False)
     assert r.status_code in (302, 307)
-    assert r.headers["location"] == "./?auth=unavailable"
+    assert r.headers["location"] == "/?auth=unavailable"
 
 
 def _login_flow(monkeypatch, exchange):
@@ -230,6 +230,7 @@ def test_oauth_success_sets_session_and_logout_is_post(monkeypatch):
 
     c, r = _login_flow(monkeypatch, ok)
     assert r.status_code in (302, 307) and "auth=" not in r.headers["location"]
+    assert r.headers["location"] == "/"  # absolute: "./" from /auth/callback is /auth/, a 404
     assert "max-age=1209600" in r.headers["set-cookie"].lower()
     assert c.get("/api/trips").json()["me"] == main_mod.public_owner_id("777")
     assert c.get("/logout").status_code == 405
@@ -486,3 +487,34 @@ def test_lifecycle_filter_and_purge(client):
     assert lifecycle.purge_old_trips() == 1
     with db.get_conn() as c:
         assert c.execute("SELECT 1 FROM trips WHERE id = ?", (old_id,)).fetchone() is None
+
+
+def test_every_login_redirect_lands_on_the_board(monkeypatch):
+    """The callback lives at /auth/callback, so a relative "./" sent people to /auth/ (404)."""
+
+    async def ok(code):
+        return {"me": {"id": 778, "username": "pilot8"}, "guilds": []}
+
+    c, r = _login_flow(monkeypatch, ok)
+    landed = c.get(r.headers["location"])
+    assert landed.status_code == 200 and landed.url.path == "/"
+    for query, tag in (("error=access_denied", "denied"), ("code=x&state=wrong", "error")):
+        r = c.get(f"/auth/callback?{query}", follow_redirects=False)
+        assert r.headers["location"] == f"/?auth={tag}"
+        assert c.get(r.headers["location"]).status_code == 200
+
+
+def test_first_time_login_is_sent_to_the_consent_page_not_denied(monkeypatch):
+    monkeypatch.setattr(config, "DISCORD_CLIENT_ID", "cid")
+    monkeypatch.setattr(auth_mod, "is_configured", lambda: True, raising=False)
+    c = TestClient(app)
+    first = c.get("/login", follow_redirects=False).headers["location"]
+    assert "prompt=none" in first
+    state = first.split("state=")[1].split("&")[0]
+    r = c.get(f"/auth/callback?error=consent_required&state={state}", follow_redirects=False)
+    loc = r.headers["location"]
+    assert loc.startswith("https://discord.com/") and "prompt=" not in loc  # interactive, with a new state
+    assert loc.split("state=")[1].split("&")[0] != state
+    # a forged error callback is not bounced
+    r = c.get("/auth/callback?error=consent_required&state=forged", follow_redirects=False)
+    assert r.headers["location"] == "/?auth=denied"

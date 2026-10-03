@@ -221,3 +221,8 @@ def test_is_admin(monkeypatch):
     assert not auth.is_admin({"id": "dev-user"})
     monkeypatch.setattr(config, "DEV_MODE", True)
     assert auth.is_admin({"id": "dev-user"})
+
+
+def test_login_url_without_silent_has_no_prompt(monkeypatch):
+    q = parse_qs(urlparse(auth.login_url("st", silent=False)).query)
+    assert "prompt" not in q and q["state"] == ["st"]

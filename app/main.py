@@ -230,6 +230,12 @@ def _base(request: Request) -> str:
     return request.scope.get("root_path", "") or ""
 
 
+def _home(request: Request, query: str = "") -> str:
+    """Absolute path of the board. Never redirect with "./": from /auth/callback it
+    resolves to /auth/, which does not exist."""
+    return f"{_base(request)}/{query}"
+
+
 def _is_configured() -> bool:
     fn = getattr(auth, "is_configured", None)
     return bool(fn()) if fn else bool(config.DISCORD_CLIENT_ID)
@@ -251,7 +257,7 @@ def index(request: Request):
 @app.get("/login")
 def login(request: Request):
     if not _is_configured():
-        return RedirectResponse("./?auth=unavailable")
+        return RedirectResponse(_home(request, "?auth=unavailable"))
     state = secrets.token_urlsafe(16)
     request.session["oauth_state"] = state
     return RedirectResponse(auth.login_url(state))
@@ -262,31 +268,37 @@ async def callback(
     request: Request, code: str | None = None, state: str | None = None, error: str | None = None
 ):
     expected = request.session.pop("oauth_state", None)
+    if error in auth.SILENT_LOGIN_ERRORS and expected and state and hmac.compare_digest(state, expected):
+        # The silent login only works for people who already approved the app. Send everyone
+        # else to Discord's consent page, with a fresh state.
+        fresh = secrets.token_urlsafe(16)
+        request.session["oauth_state"] = fresh
+        return RedirectResponse(auth.login_url(fresh, silent=False))
     if error or not code:
-        return RedirectResponse("./?auth=denied")
+        return RedirectResponse(_home(request, "?auth=denied"))
     # The state must match what /login stored; otherwise this callback wasn't
     # initiated here (login-CSRF) and must not complete.
     if not expected or not state or not hmac.compare_digest(state, expected):
-        return RedirectResponse("./?auth=error")
+        return RedirectResponse(_home(request, "?auth=error"))
     try:
         info = await auth.exchange_code(code)
         me = info["me"]
         user = {"id": str(me["id"]), "name": auth.display_name(me), "discord_id": str(me["id"])}
     except Exception as exc:  # DiscordError, or a malformed reply
         log.warning("discord login failed: %r", exc)
-        return RedirectResponse("./?auth=error")
+        return RedirectResponse(_home(request, "?auth=error"))
     if not auth.in_required_guild(info.get("guilds") or []):
-        return RedirectResponse("./?auth=not_member")
+        return RedirectResponse(_home(request, "?auth=not_member"))
     await asyncio.to_thread(db.upsert_user, user["id"], user["name"])
     request.session.clear()
     request.session["user"] = user
-    return RedirectResponse("./")
+    return RedirectResponse(_home(request))
 
 
 @app.post("/logout")
 def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("./", status_code=303)
+    return RedirectResponse(_home(request), status_code=303)
 
 
 # ---------------- API: read ----------------
