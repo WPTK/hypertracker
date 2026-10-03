@@ -1,0 +1,238 @@
+/* WPTK Design System, trimmed subset of components/bundle.css (see VERSION).
+   Kept: base and body gradient, container, nav and theme toggle, surface,
+   type scale, hub-card, wptk-section, skip-link, footer.
+   Dropped: CFP, FBS, nooclear and 350 page rules, burger menu (this nav has
+   no links), legacy !important helpers.
+   Differences from the source bundle are listed in VERSION. */
+
+/* ===== Base ===== */
+*{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+html, body{ min-height:100%; }
+
+body.wptk{
+  margin:0;
+  font-family: var(--font);
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--text-0);
+  background-color: var(--bg-0);
+  background-image:
+    radial-gradient(900px 520px at 16% 10%, rgba(177,77,255,0.18) 0%, rgba(177,77,255,0) 60%),
+    radial-gradient(1100px 600px at 82% 18%, rgba(26,167,161,0.16) 0%, rgba(26,167,161,0) 62%),
+    radial-gradient(950px 520px at 64% 92%, rgba(45,91,255,0.14) 0%, rgba(45,91,255,0) 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0) 62%, rgba(0,0,0,0.55) 120%);
+  background-attachment: fixed;
+}
+:root[data-theme="light"] body.wptk{
+  background-image:
+    radial-gradient(900px 520px at 18% 12%, rgba(158,62,220,0.12) 0%, rgba(158,62,220,0) 62%),
+    radial-gradient(1100px 600px at 84% 20%, rgba(19,143,138,0.10) 0%, rgba(19,143,138,0) 62%),
+    radial-gradient(950px 520px at 64% 92%, rgba(45,91,255,0.10) 0%, rgba(45,91,255,0) 60%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-0) 70%);
+}
+
+a{ color: var(--text-0); text-underline-offset: 3px; }
+a:hover{ color: var(--accent-0-text); }
+
+.wptk-container{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 22px var(--gutter) 62px;
+}
+
+/* ===== Nav ===== */
+.wptk-nav{
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-3);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.wptk-nav__inner{
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 12px var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.wptk-nav__back{
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text-0);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 14px;
+  padding: 8px 4px 8px 0;
+}
+.wptk-nav__back:hover, .wptk-nav__here:hover{ text-decoration: underline; text-underline-offset: 4px; }
+.wptk-nav__sep{
+  color: var(--text-1);
+  font-size: 14px;
+  user-select: none;
+}
+.wptk-nav__here{
+  color: var(--text-0);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52vw;
+  text-decoration: none;
+}
+.wptk-nav__spacer{ flex: 1; }
+
+/* ===== Theme toggle ===== */
+.wptk-theme-toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-0);
+  font: inherit;
+  cursor: pointer;
+}
+.wptk-theme-toggle:hover{ border-color: var(--accent-0); }
+.wptk-theme-toggle__track{
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  position: relative;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+}
+.wptk-theme-toggle__thumb{
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--text-0);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-theme="light"] .wptk-theme-toggle__thumb{ left: 23px; }
+.wptk-theme-toggle__text{
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--text-1);
+}
+@media (prefers-reduced-motion: no-preference){
+  .wptk-theme-toggle{ transition: border-color .15s ease; }
+  .wptk-theme-toggle__thumb{ transition: left .18s ease; }
+}
+
+/* ===== Surfaces ===== */
+.surface{
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 22px;
+}
+
+h1, h2, h3{
+  margin: 0 0 12px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+h1{ font-weight: 300; font-size: clamp(34px, 4vw, 50px); margin-bottom: 10px; }
+h2{ font-weight: 500; font-size: 26px; }
+h3{ font-weight: 500; font-size: 20px; color: var(--text-1); }
+p{ margin: 0 0 14px; color: var(--text-0); }
+hr{ border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+
+/* ===== Hub card ===== */
+.hub-card{
+  text-decoration: none;
+  display: block;
+  padding: 18px 18px 16px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+.hub-card::before{
+  content:"";
+  position:absolute;
+  inset: -1px;
+  background: radial-gradient(520px 220px at 10% 20%, rgba(45,91,255,0.14), transparent 60%),
+              radial-gradient(520px 220px at 92% 22%, rgba(177,77,255,0.12), transparent 60%);
+  opacity: .9;
+  pointer-events: none;
+}
+.hub-card > *{ position: relative; }
+a.hub-card:hover{ border-color: var(--accent-0); transform: translateY(-1px); }
+.hub-title{ font-weight: 600; font-size: 18px; letter-spacing: 0.01em; margin: 0 0 6px; }
+.hub-desc{ margin: 0; color: var(--text-1); font-size: 14px; line-height: 1.5; }
+@media (prefers-reduced-motion: no-preference){
+  .hub-card{ transition: transform .15s ease, border-color .15s ease; }
+}
+
+/* ===== Section card (accent bar) ===== */
+.wptk-section{
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 18px 14px;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+}
+.wptk-section::before{
+  content:"";
+  position:absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 999px;
+  background: var(--accent-0);
+}
+.wptk-section[data-accent="1"]::before{ background: var(--accent-1); }
+.wptk-section[data-accent="2"]::before{ background: var(--accent-2); }
+
+/* ===== Skip link ===== */
+.skip-link{
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.skip-link:focus{
+  left: 16px;
+  top: 16px;
+  width: auto;
+  height: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--text-0);
+  z-index: 9999;
+}
+
+/* ===== Footer ===== */
+footer{
+  margin-top: var(--space-xl);
+  color: var(--text-1);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior: auto; }
+}

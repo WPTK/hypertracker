@@ -1,0 +1,28 @@
+WPTK Design System, vendored copy
+source:    https://claude.ai/artifact/WL7fZrY7G529gisvUgKYqL
+artifact:  version 1790705302-ba80 (type "Design System")
+tokens:    project/tokens.json, version 1
+vendored:  2026-10-03
+
+files
+  tokens.css   written from tokens.json (the DS's own tokens.css is stale: old
+               --line values, no --accent-0-text). Theme selectors use the
+               bundle's convention: :root is Midnight, :root[data-theme="light"]
+               is Daylight.
+  wptk.css     trimmed subset of project/components/bundle.css
+  fonts/Manrope-VariableFont_wght.ttf
+               project/components/fonts/, sha256 2b7a1ebc80c79246faa1b6e7093c7b91de2a4ceedb9b9a2b2fa05cf9bf8c77cd
+
+differences from bundle.css (all deliberate)
+  - kept: base and body gradient, container, nav, theme toggle, surface, type
+    scale, hub-card, wptk-section, skip-link, footer
+  - dropped: page rules for CFP, FBS, nooclear and 350, .mono, .eq, .content,
+    .page, .hub-grid, burger menu, the .marquee/.ticker !important rule,
+    the reduced-motion !important overrides
+  - nav background uses var(--surface-3) as the Nav README says, instead of a
+    hard-coded rgba that duplicated the token
+  - link focus ring moved to css/wptk-ext.css (one rule for every control)
+  - theme toggle label is sentence case, not uppercase (README: no ALL CAPS)
+  - hover colours use --accent-0-text where Cobalt colours words
+
+local extensions live in ../css/wptk-ext.css and are documented in docs/DS_PROPOSAL.md

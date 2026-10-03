@@ -1,0 +1,237 @@
+/* Local extensions to the WPTK Design System.
+   The DS has no buttons, inputs, chips, status colours or dialog. These are
+   built here and recorded in docs/DS_PROPOSAL.md so they can be proposed
+   upstream. Do not edit wptk/ to add them.
+   Every colour pair defined below is checked in both themes by
+   tools/contrast_check.py (4.5:1 text, 3:1 control borders and markers). */
+
+:root, :root[data-theme="dark"] {
+  /* status markers and borders, Midnight */
+  --st-airborne:   #34d399;
+  --st-ground:     #fbbf24;
+  --st-scheduled:  #8fa8ff;
+  --st-landed:     #aab4c2;
+  --st-delayed:    #fb923c;
+  --st-cancelled:  #f87171;
+  --st-unverified: #c98bff;
+  --line-control:  #6a7fa3;   /* borders of controls: buttons, inputs, chips, toggle */
+  --focus-ring:    var(--accent-0-text);
+  --danger:        #ff8f8f;   /* error text */
+  --on-accent:     #ffffff;   /* text on --accent-0-strong */
+  --accent-0-strong: #2d5bff; /* primary button fill */
+  --accent-0-strong-hover: #2450e6;
+  --tint-active:   rgba(45, 91, 255, 0.22);
+  --tint-hover:    rgba(45, 91, 255, 0.12);
+  --tint-danger:   rgba(248, 113, 113, 0.14);
+  --backdrop:      rgba(5, 8, 15, 0.62);
+}
+:root[data-theme="light"] {
+  --st-airborne:   #047857;
+  --st-ground:     #92400e;
+  --st-scheduled:  #2d5bff;
+  --st-landed:     #4a5568;
+  --st-delayed:    #b45309;
+  --st-cancelled:  #b91c1c;
+  --st-unverified: #7e22ce;
+  --line-control:  #667a9c;
+  --focus-ring:    var(--accent-0-text);
+  --danger:        #b42318;
+  --on-accent:     #ffffff;
+  --accent-0-strong: #2d5bff;
+  --accent-0-strong-hover: #1f48e0;
+  --tint-active:   rgba(45, 91, 255, 0.14);
+  --tint-hover:    rgba(45, 91, 255, 0.08);
+  --tint-danger:   rgba(185, 28, 28, 0.08);
+  --backdrop:      rgba(14, 20, 34, 0.45);
+}
+
+/* ===== Utilities ===== */
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.is-hidden, [hidden] { display: none !important; }
+
+/* ===== Focus ring: one rule for every control ===== */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+:where(a):focus-visible { border-radius: 6px; }
+:where(input, select, textarea):focus-visible { border-color: var(--focus-ring); }
+
+/* ===== Buttons: pills, like the nav links ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line-control);
+  background: var(--surface-2);
+  color: var(--text-0);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--focus-ring); background: var(--tint-hover); color: var(--text-0); }
+.btn:active { background: var(--tint-active); }
+.btn[disabled], .btn[aria-disabled="true"] { cursor: not-allowed; opacity: 1; color: var(--text-1); border-style: dashed; background: transparent; }
+.btn--primary { background: var(--accent-0-strong); border-color: var(--focus-ring); color: var(--on-accent); }
+.btn--primary:hover { background: var(--accent-0-strong-hover); border-color: var(--focus-ring); color: var(--on-accent); }
+.btn--primary:active { background: var(--accent-0-strong-hover); }
+.btn--primary[disabled] { background: transparent; color: var(--text-1); border-color: var(--line-control); }
+.btn--ghost { background: transparent; border-color: transparent; }
+.btn--ghost:hover { border-color: var(--focus-ring); }
+.btn--danger { color: var(--danger); border-color: var(--danger); }
+.btn--danger:hover { background: var(--tint-danger); border-color: var(--danger); color: var(--danger); }
+.btn--sm { min-height: 32px; padding: 4px 14px; font-size: 14px; }
+
+/* ===== Fields ===== */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field__label { font-size: 14px; font-weight: 600; color: var(--text-0); letter-spacing: 0.01em; }
+.field__hint { font-size: 13px; color: var(--text-1); line-height: 1.4; margin: 0; }
+.field__error { font-size: 13px; color: var(--danger); line-height: 1.4; margin: 0; font-weight: 600; }
+
+.input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-control);
+  background: var(--surface-2);
+  color: var(--text-0);
+  font: inherit;
+  font-size: 16px;   /* 16px keeps iOS from zooming on focus */
+  line-height: 1.3;
+}
+.input::placeholder { color: var(--text-1); opacity: 1; }
+.input:hover { border-color: var(--text-1); }
+.input[aria-invalid="true"] { border-color: var(--danger); border-width: 2px; padding: 7px 13px; }
+.input[disabled], .input[readonly] { color: var(--text-1); }
+.input[disabled] { border-style: dashed; cursor: not-allowed; }
+.input--mono { font-family: var(--mono); letter-spacing: 0.02em; }
+
+/* ===== Chips: pill toggles ===== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-control);
+  background: var(--surface-2);
+  color: var(--text-0);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--focus-ring); background: var(--tint-hover); }
+/* Active is a filled dot, a heavier weight and a cobalt border: not hue alone. */
+.chip.is-active, .chip[aria-pressed="true"] {
+  border-color: var(--focus-ring);
+  background: var(--tint-active);
+  font-weight: 700;
+}
+.chip.is-active::before, .chip[aria-pressed="true"]::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-0);
+  flex: none;
+}
+
+/* ===== Status: a dot or shape plus a text label, never colour alone ===== */
+.status {
+  --st: var(--st-scheduled);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 2px 12px 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--st);
+  background: var(--surface-2);
+  color: var(--text-0);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.status::before {
+  content: "";
+  flex: none;
+  width: 10px; height: 10px;
+  background: var(--st);
+  border-radius: 50%;           /* default: filled circle */
+}
+.status--airborne    { --st: var(--st-airborne); }                                   /* filled circle */
+.status--ground      { --st: var(--st-ground); }
+.status--ground::before { border-radius: 2px; }                                      /* filled square */
+.status--scheduled   { --st: var(--st-scheduled); }
+.status--scheduled::before { background: transparent; border: 2px solid var(--st); } /* ring */
+.status--landed      { --st: var(--st-landed); }
+.status--landed::before { background: transparent; border: 2px solid var(--st); border-radius: 2px; } /* hollow square */
+.status--delayed     { --st: var(--st-delayed); }
+.status--delayed::before { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }       /* triangle */
+.status--cancelled   { --st: var(--st-cancelled); }
+.status--cancelled::before { border-radius: 0; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); } /* diamond */
+.status--unverified  { --st: var(--st-unverified); border-style: dashed; }
+.status--unverified::before { background: transparent; border: 2px dashed var(--st); }               /* dashed ring */
+
+/* ===== Dialog ===== */
+dialog.dialog {
+  padding: 0;
+  margin: auto;
+  width: min(560px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-1);
+  color: var(--text-0);
+  box-shadow: var(--shadow);
+}
+dialog.dialog::backdrop { background: var(--backdrop); }
+.dialog__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-lg) var(--space-xl) 0; }
+.dialog__title { margin: 0; font-size: 22px; font-weight: 500; }
+.dialog__body { padding: var(--space-md) var(--space-xl); display: flex; flex-direction: column; gap: var(--space-md); }
+.dialog__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); padding: 0 var(--space-xl) var(--space-xl); }
+body:has(dialog.dialog[open]) { overflow: hidden; }
+
+/* ===== Touch: 44px minimum hit areas on coarse pointers ===== */
+@media (pointer: coarse) {
+  .btn, .btn--sm, .input, .chip { min-height: 44px; }
+  .btn, .chip, .wptk-theme-toggle { min-width: 44px; }
+  .wptk-theme-toggle { min-height: 44px; }
+}
+
+/* ===== Motion ===== */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .chip, .input { transition: border-color .15s ease, background-color .15s ease; }
+}
+
+/* Theme toggle is a control: give it the control border (DS --line dips under 3:1 over the backdrop blobs). */
+.wptk-theme-toggle { border-color: var(--line-control); }
+.wptk-theme-toggle:hover { border-color: var(--focus-ring); }
+.wptk-theme-toggle__track { border-color: var(--line-control); }
