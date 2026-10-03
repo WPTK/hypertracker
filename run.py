@@ -12,4 +12,5 @@ if __name__ == "__main__":
         port=8000,
         root_path=config.ROOT_PATH,
         reload=True,
+        reload_dirs=["app"],  # don't reload when the SQLite db in data/ is written
     )

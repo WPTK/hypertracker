@@ -1,0 +1,23 @@
+# Secrets — never commit the real .env (use .env.example as the template)
+.env
+
+# Local data: the SQLite DB and the downloaded airports CSV
+data/*.db
+data/*.db-journal
+data/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# OS / editor cruft
+.DS_Store
+*.swp
+data/*.db-wal
+data/*.db-shm
+
+# Tests
+.pytest_cache/

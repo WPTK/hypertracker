@@ -46,7 +46,7 @@ def _age_years(rec: dict):
             continue
         built = _parse_build_date(str(raw))
         if built:
-            days = (dt.datetime.utcnow() - built).days
+            days = (dt.datetime.now(dt.timezone.utc) - built.replace(tzinfo=dt.timezone.utc)).days
             return round(days / 365.25, 1), str(raw)[:10]
     return None, None
 
@@ -76,8 +76,8 @@ async def resolve_leg(direction: str, seq: int, flight_no: str, date_local: str,
         "resolved": 0, "manual": 0,
     }
 
-    # Manual airports take priority and skip the API entirely (zero cost path).
-    if manual_from or manual_to:
+    # Fill the route from manually entered / hinted airports (no API call).
+    def fill_manual():
         leg["manual"] = 1
         a = db.find_airport(manual_from) if manual_from else None
         b = db.find_airport(manual_to) if manual_to else None
@@ -87,11 +87,24 @@ async def resolve_leg(direction: str, seq: int, flight_no: str, date_local: str,
         if b:
             leg.update(arr_icao=b["ident"], arr_iata=b.get("iata"), arr_name=b.get("name"),
                        arr_lat=b.get("lat"), arr_lon=b.get("lon"))
+
+    # No flight number: manual airports, or leave unresolved for the UI to prompt.
+    if not flight_no:
+        if manual_from or manual_to:
+            fill_manual()
         return leg
 
-    f = await aerodatabox.flight_by_number(flight_no, date_local)
+    # Flight number present: resolve via the API. One flight number can fly
+    # several legs in a day under the same number, so any From/To the user gave
+    # are passed as hints to pin the exact leg they mean.
+    f = await aerodatabox.flight_by_number(flight_no, date_local,
+                                           dep_hint=manual_from, arr_hint=manual_to)
     if not f:
-        return leg  # unresolved; UI will prompt for manual airports
+        # Couldn't pin a leg. If the user supplied airports, show that route
+        # rather than nothing (correct route, just without API times/aircraft).
+        if manual_from or manual_to:
+            fill_manual()
+        return leg
 
     leg["resolved"] = 1
     dep = f.get("departure") or {}

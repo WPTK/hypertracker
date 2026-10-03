@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS trips (
     owner_id     TEXT NOT NULL,
     owner_name   TEXT NOT NULL,
     submitter_tz TEXT,
-    created_at   INTEGER NOT NULL
+    created_at   INTEGER NOT NULL,
+    manage_token TEXT,                  -- sha256 of the anon edit token (NULL for logged-in owners)
+    ends_at      INTEGER                -- epoch of final scheduled arrival (NULL = unknown -> always shown)
 );
 
 CREATE TABLE IF NOT EXISTS legs (
@@ -74,6 +76,10 @@ def get_conn():
     conn = sqlite3.connect(config.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # WAL lets readers coexist with the (single) writer instead of throwing
+    # "database is locked"; busy_timeout covers the rare write/write overlap.
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     try:
         yield conn
         conn.commit()
@@ -84,6 +90,31 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
+
+
+def _migrate(conn):
+    """Lightweight, idempotent migrations for databases created before a column
+    existed. Safe to run on every startup."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(trips)").fetchall()}
+    if "manage_token" not in cols:
+        conn.execute("ALTER TABLE trips ADD COLUMN manage_token TEXT")
+    if "ends_at" not in cols:
+        conn.execute("ALTER TABLE trips ADD COLUMN ends_at INTEGER")
+        _backfill_ends_at(conn)
+    # Created here (not in SCHEMA) so old databases gain the column first.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_trips_ends ON trips(ends_at)")
+
+
+def _backfill_ends_at(conn):
+    """Populate ends_at for rows created before the column existed."""
+    from . import lifecycle  # deferred: lifecycle imports db at module level
+    for t in conn.execute("SELECT id FROM trips WHERE ends_at IS NULL").fetchall():
+        legs = [dict(l) for l in conn.execute(
+            "SELECT * FROM legs WHERE trip_id = ?", (t["id"],)).fetchall()]
+        ends = lifecycle.compute_ends_at(legs)
+        if ends is not None:
+            conn.execute("UPDATE trips SET ends_at = ? WHERE id = ?", (ends, t["id"]))
 
 
 # --- caches ---

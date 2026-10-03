@@ -1,8 +1,9 @@
-"""Discord OAuth2 (authorization-code flow) + 'must be a member of THE server' gate.
+"""Discord OAuth2 (authorization-code flow), optional single-server gate, admins.
 
-Scopes: identify guilds. We read the user's guild list and require the configured
-guild to be present — that restricts the site to members of your one server,
-without you needing to be a moderator of it.
+Scopes: identify guilds. Login is optional — see config.OPEN_BOARD. When a
+DISCORD_GUILD_ID is configured we read the user's guild list and require that
+guild to be present, which restricts *logging in* to members of your one server
+without you needing to be a moderator of it. The board itself stays open.
 """
 import httpx
 from urllib.parse import urlencode
@@ -14,13 +15,17 @@ TOKEN = "https://discord.com/api/oauth2/token"
 API = "https://discord.com/api"
 
 
-def login_url() -> str:
+def login_url(state: str) -> str:
+    """Authorization URL. `state` is a per-attempt CSRF token: stored in the
+    session at /login and verified at /auth/callback, so a login can only
+    complete if it started here (prevents login-CSRF)."""
     params = {
         "client_id": config.DISCORD_CLIENT_ID,
         "redirect_uri": config.DISCORD_REDIRECT_URI,
         "response_type": "code",
         "scope": "identify guilds",
         "prompt": "consent",
+        "state": state,
     }
     return f"{AUTHORIZE}?{urlencode(params)}"
 
@@ -57,13 +62,23 @@ def display_name(me: dict) -> str:
     return me.get("global_name") or me.get("username") or "pilot"
 
 
+def is_admin(user: dict | None) -> bool:
+    """True if the logged-in user is configured as a board admin (or in DEV_MODE)."""
+    if not user:
+        return False
+    if config.DEV_MODE and user.get("id") == "dev-user":
+        return True
+    did = user.get("discord_id")
+    return bool(did) and str(did) in config.ADMIN_DISCORD_IDS
+
+
 def current_user(request: Request) -> dict | None:
-    """Return {'id','name'} from session, or a fake user in DEV_MODE."""
+    """Return {'id','name','discord_id'} from the session, or a fake admin in DEV_MODE."""
     user = request.session.get("user")
     if user:
         return user
     if config.DEV_MODE:
-        return {"id": "dev-user", "name": "dev"}
+        return {"id": "dev-user", "name": "dev", "discord_id": "dev-user"}
     return None
 
 

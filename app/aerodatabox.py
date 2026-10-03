@@ -37,45 +37,68 @@ async def _get(path: str, params: dict | None = None):
         return {"_error": "exception", "_body": str(e)[:300]}
 
 
-async def flight_by_number(flight_no: str, date_local: str) -> dict | None:
-    """Return the raw AeroDataBox flight payload for flight_no on date_local.
+async def flight_by_number(flight_no: str, date_local: str,
+                           dep_hint: str | None = None, arr_hint: str | None = None) -> dict | None:
+    """Return one AeroDataBox flight leg for flight_no on date_local.
 
-    date_local is interpreted as the DEPARTURE airport's local date, which is how
-    AeroDataBox indexes flights and how schedules are published.
+    date_local is the DEPARTURE airport's local date. The endpoint returns every
+    leg flown under this number that day (carriers reuse a number across a
+    multi-leg rotation), so dep_hint/arr_hint (ICAO or IATA) pick the leg the
+    caller means. The whole day's list is cached; selection happens per call, so
+    the same number resolves correctly for different legs/hints.
     """
-    key = f"{flight_no}|{date_local}"
-    cached = db.cache_get("flight_cache", "cache_key", key, config.FLIGHT_CACHE_TTL)
-    if cached is not None:
-        return cached
-
-    data = await _get(
-        f"/flights/number/{flight_no}/{date_local}",
-        params={
-            "withAircraftImage": "false",
-            "withLocation": "true",       # include airport lat/lon
-            "dateLocalRole": "Departure",  # disambiguate overnight flights
-        },
-    )
-    if isinstance(data, dict) and data.get("_error"):
-        return None
-    # Endpoint may return a list of movements or a dict wrapping one.
-    flights = data if isinstance(data, list) else data.get("flights") or [data]
-    if not flights:
-        return None
-    chosen = _pick_flight(flights, date_local)
-    if chosen:
-        db.cache_put("flight_cache", "cache_key", key, chosen)
-    return chosen
+    key = f"v2|{flight_no}|{date_local}"
+    flights = db.cache_get("flight_cache", "cache_key", key, config.FLIGHT_CACHE_TTL)
+    if flights is None:
+        data = await _get(
+            f"/flights/number/{flight_no}/{date_local}",
+            params={
+                "withAircraftImage": "false",
+                "withLocation": "true",        # include airport lat/lon
+                "dateLocalRole": "Departure",   # disambiguate overnight flights
+            },
+        )
+        if isinstance(data, dict) and data.get("_error"):
+            return None
+        # Endpoint may return a list of movements or a dict wrapping one.
+        flights = data if isinstance(data, list) else (data.get("flights") or [data])
+        if not flights:
+            return None
+        db.cache_put("flight_cache", "cache_key", key, flights)
+    return _pick_flight(flights, date_local, dep_hint, arr_hint)
 
 
-def _pick_flight(flights: list, date_local: str) -> dict | None:
-    """Pick the movement whose departure local date matches the requested date."""
-    for f in flights:
-        dep = (f.get("departure") or {}).get("scheduledTime") or {}
-        local = (dep.get("local") or "")[:10]
-        if local == date_local:
-            return f
-    return flights[0] if flights else None
+def _dep_local_date(f: dict) -> str:
+    return (((f.get("departure") or {}).get("scheduledTime") or {}).get("local") or "")[:10]
+
+
+def _leg_matches(f: dict, dep_hint: str | None, arr_hint: str | None) -> bool:
+    """True if the leg's departure/arrival match the given hints (ICAO or IATA)."""
+    def codes(side: str) -> set:
+        ap = (f.get(side) or {}).get("airport") or {}
+        return {(ap.get("icao") or "").upper(), (ap.get("iata") or "").upper()} - {""}
+    if dep_hint and dep_hint not in codes("departure"):
+        return False
+    if arr_hint and arr_hint not in codes("arrival"):
+        return False
+    return True
+
+
+def _pick_flight(flights: list, date_local: str,
+                 dep_hint: str | None = None, arr_hint: str | None = None) -> dict | None:
+    """Choose one leg. Prefer legs departing on the requested date; when a number
+    flew several that day, use the From/To hints to pin the exact one."""
+    dep_hint = (dep_hint or "").strip().upper() or None
+    arr_hint = (arr_hint or "").strip().upper() or None
+    pool = [f for f in flights if _dep_local_date(f) == date_local] or list(flights)
+    if len(pool) <= 1:
+        return pool[0] if pool else None          # unambiguous — hints not needed
+    if dep_hint or arr_hint:
+        for f in pool:
+            if _leg_matches(f, dep_hint, arr_hint):
+                return f
+        return None                                # hints given but none matched
+    return pool[0]                                 # ambiguous, no hint: best effort
 
 
 async def aircraft_by_reg(reg: str) -> dict | None:

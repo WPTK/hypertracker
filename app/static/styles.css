@@ -19,15 +19,12 @@ a:hover{color:var(--accent);text-decoration:underline}
 .header-inner{max-width:1040px;margin:0 auto;padding:.9rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
 .site-logo{font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--accent);text-decoration:none;letter-spacing:-.02em}
 .site-logo:hover{text-decoration:none}
-.site-logo span{color:var(--text-faint);font-family:'JetBrains Mono',monospace;font-size:.85rem;margin-left:.5rem}
 .header-right{display:flex;align-items:center;gap:.9rem}
 .clock{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--text-muted)}
 .who-mini{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text-muted)}
+.admin-tag{font-family:'JetBrains Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--accent-warm);border:1px solid var(--accent-warm);border-radius:3px;padding:0 .3rem;margin-left:.2rem;vertical-align:middle}
 
 .container{max-width:1040px;margin:0 auto;padding:2rem 1.5rem 4rem}
-.pagehead{border-left:3px solid var(--accent);padding-left:1.25rem;margin-bottom:1.75rem}
-h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem);font-weight:400;line-height:1.12}
-.pagehead .sub{color:var(--text-muted);margin-top:.4rem}
 
 .gate{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:2rem;text-align:center}
 .gate p{color:var(--text-muted);margin-bottom:1rem}
@@ -59,9 +56,10 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 .journey+.journey{margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border-subtle)}
 .journey.multi{padding-left:1rem}
 .journey.multi::before{content:'';position:absolute;left:3px;top:1.05rem;bottom:1.05rem;width:2px;background:var(--border)}
-.j-tools{position:absolute;right:0;top:.2rem}
-.j-del{background:none;border:0;color:var(--text-faint);cursor:pointer;font-size:.75rem;padding:.2rem .4rem;border-radius:4px}
+.j-tools{display:flex;justify-content:flex-end;gap:.5rem;margin-bottom:.3rem}
+.j-del,.j-edit{background:none;border:0;color:var(--text-muted);cursor:pointer;font-size:.75rem;padding:.2rem .45rem;border-radius:4px}
 .j-del:hover{color:var(--accent)}
+.j-edit:hover{color:var(--accent-teal)}
 
 .leg{display:grid;grid-template-columns:64px 96px 1fr auto;align-items:start;gap:.9rem;padding:.55rem 0;border-left:3px solid transparent;transition:opacity .15s,background .15s,border-color .15s}
 .leg.hl{border-left-color:var(--accent);background:var(--surface-raised);padding-left:.6rem;margin-left:-.6rem}
@@ -106,8 +104,8 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
 .ap-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);background:rgba(20,20,20,.85);border:1px solid var(--border);border-radius:3px;padding:1px 4px;white-space:nowrap}
 
-[hidden]{display:none !important}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:3rem 1rem;z-index:200;overflow-y:auto}
+.modal-bg[hidden]{display:none}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;width:100%;max-width:560px;padding:1.5rem}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem}
 .modal-head h2{font-family:'DM Serif Display',serif;font-weight:400;font-size:1.6rem}
@@ -116,10 +114,17 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 .modal-sub{color:var(--text-muted);font-size:.85rem;margin-bottom:1.2rem}
 .man-mode{display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--text-muted);margin-bottom:1.2rem;cursor:pointer}
 .man-mode input{accent-color:var(--accent)}
+.who-field{margin-bottom:1.2rem}
+.who-field[hidden]{display:none}
+.who-field label{display:block;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:.45rem}
+.who-field input{width:100%;background:var(--surface-subtle);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'Source Sans 3',sans-serif;font-size:.95rem;padding:.55rem .7rem}
+.who-field input:focus{outline:none;border-color:var(--accent-teal)}
+.who-note{font-size:.72rem;color:var(--text-faint);margin-top:.4rem;line-height:1.4}
 .dir-block{margin-bottom:1.2rem}
 .dir-block h3{font-family:'Source Sans 3',sans-serif;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:.6rem}
 .legrow{display:grid;grid-template-columns:1fr 140px auto;gap:.5rem;margin-bottom:.5rem;align-items:center}
 .legrow.manual{grid-template-columns:1fr 1fr 140px auto}
+.legrow.flight{grid-template-columns:1.3fr .8fr .8fr 130px auto}
 .legrow input{background:var(--surface-subtle);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.45rem .6rem;width:100%}
 .legrow input:focus{outline:none;border-color:var(--accent-teal)}
 .legrow .rm{background:none;border:0;color:var(--text-faint);cursor:pointer;font-size:1rem}
@@ -128,11 +133,16 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 .modal-actions{display:flex;align-items:center;gap:.6rem;margin-top:1rem}
 .modal-actions .spacer{flex:1}
 .modal-err{color:var(--accent);font-size:.82rem;min-height:1em;margin-top:.6rem}
+#modalForm[hidden],#savedPanel[hidden]{display:none}
+.saved-label{display:block;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin:1rem 0 .45rem}
+.saved-row{display:flex;gap:.5rem}
+.saved-row input{flex:1;background:var(--surface-subtle);border:1px solid var(--border);border-radius:5px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:.76rem;padding:.5rem .6rem}
+.saved-row input:focus{outline:none;border-color:var(--accent-teal);color:var(--text)}
 
 @media(max-width:600px){
   .leg{grid-template-columns:1fr;gap:.25rem;padding:.65rem 0}
   .track{justify-self:start;margin-top:.35rem}
   .route{font-size:1.1rem}
   .hint{display:none}
-  .legrow,.legrow.manual{grid-template-columns:1fr}
+  .legrow,.legrow.manual,.legrow.flight{grid-template-columns:1fr}
 }
