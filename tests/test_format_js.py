@@ -54,3 +54,21 @@ def test_on_ground_and_landed():
 
 def test_unverified_beats_schedule_guess():
     assert status(leg(unverified=True), T["during"])["label"] == "Unverified"
+
+
+def test_aerodatabox_status_covers_legs_the_live_feed_cannot_see():
+    assert status(leg(flight_status="airborne"), T["during"])["label"] == "Airborne"
+    assert status(leg(flight_status="landed"), T["during"])["label"] == "Landed"
+    assert status(leg(flight_status="cancelled"), T["before"]) == {"key": "cancelled", "label": "Cancelled"}
+
+
+def test_delayed_until_the_revised_departure_then_past_departure():
+    delayed = leg(flight_status="delayed", dep_utc_est="2026-10-10 14:00Z", arr_utc_est="2026-10-10 18:00Z")
+    assert status(delayed, T["during"])["label"] == "Delayed"
+    assert status(delayed, "2026-10-10T14:30:00Z")["label"] == "Past departure"
+
+
+def test_landed_follows_the_revised_arrival_not_the_schedule():
+    late = leg(arr_utc_est="2026-10-10 18:00Z")
+    assert status(late, T["after"])["label"] != "Landed"
+    assert status(late, "2026-10-10T18:30:00Z")["label"] == "Landed"

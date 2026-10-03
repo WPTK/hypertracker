@@ -22,6 +22,7 @@ from . import (
     auth,
     config,
     db,
+    flightstatus,
     jobs,
     lifecycle,
     netutil,
@@ -64,6 +65,7 @@ async def lifespan(_: FastAPI):
     tasks = [
         _supervised("housekeeping", jobs.run_housekeeping_loop),
         _supervised("callsigns", jobs.run_callsign_refresher),
+        _supervised("flight-status", flightstatus.run_refresher),
     ]
     poller = getattr(airplaneslive, "run_poller", None)
     if poller is None:

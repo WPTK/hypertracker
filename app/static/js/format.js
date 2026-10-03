@@ -116,14 +116,18 @@ export function duration(ms) {
  * landed, unverified. It maps onto the .status--* modifiers.
  */
 export function legStatus(leg, nowMs) {
-  const arr = parseUtc(leg.arr_utc);
+  const arr = parseUtc(leg.arr_utc_est || leg.arr_utc);
+  if (leg.flight_status === "cancelled") return { key: "cancelled", label: "Cancelled" };
   if (leg.live_state === "airborne") return { key: "airborne", label: "Airborne" };
+  if (leg.flight_status === "landed") return { key: "landed", label: "Landed" };
+  if (leg.flight_status === "airborne") return { key: "airborne", label: "Airborne" };
   if (arr != null && nowMs >= arr) return { key: "landed", label: "Landed" };
   if (leg.live_state === "on_ground") return { key: "ground", label: "On ground" };
   if (leg.unverified) return { key: "unverified", label: "Unverified" };
   // Between the scheduled departure and arrival with no live confirmation (the live check
   // is unavailable or has not seen the aircraft): say so without claiming it is airborne.
-  const dep = parseUtc(leg.dep_utc);
+  const dep = parseUtc(leg.dep_utc_est || leg.dep_utc);
+  if (leg.flight_status === "delayed" && !(dep != null && nowMs >= dep)) return { key: "delayed", label: "Delayed" };
   if (dep != null && arr != null && nowMs >= dep && nowMs < arr) {
     return { key: "scheduled", label: "Past departure" };
   }
@@ -136,9 +140,9 @@ export function legStatus(leg, nowMs) {
 
 /** Relative text under the arrival time: "lands in 3h", "landed 20m ago", "departs in 2d 4h". */
 export function relativeText(leg, nowMs) {
-  const dep = parseUtc(leg.dep_utc);
-  const arr = parseUtc(leg.arr_utc);
-  const airborne = leg.live_state === "airborne";
+  const dep = parseUtc(leg.dep_utc_est || leg.dep_utc);
+  const arr = parseUtc(leg.arr_utc_est || leg.arr_utc);
+  const airborne = leg.live_state === "airborne" || leg.flight_status === "airborne";
   if (arr != null && nowMs >= arr) {
     if (airborne) return "past its scheduled arrival";
     const ago = nowMs - arr;

@@ -17,7 +17,7 @@ import datetime as dt
 import time
 from urllib.parse import quote
 
-from . import airplaneslive, config, db
+from . import airplaneslive, config, db, flightstatus
 
 _DAY = 86400
 LEG_DATE_SLACK_HOURS = 36
@@ -110,6 +110,7 @@ def shape_trip(trip_row: dict, leg_rows: list, cities: dict | None = None) -> di
     out, ret = [], []
     for r in leg_rows:
         l = dict(r)
+        fs = flightstatus.get(l) or {}
         item = {
             "direction": l["direction"],
             "seq": l["seq"],
@@ -141,6 +142,9 @@ def shape_trip(trip_row: dict, leg_rows: list, cities: dict | None = None) -> di
             "manual": bool(l["manual"]),
             "unverified": bool(l.get("unverified")),
             "live_state": _live_state(l, now_dt),
+            "flight_status": fs.get("state"),
+            "dep_utc_est": fs.get("dep_utc_est"),
+            "arr_utc_est": fs.get("arr_utc_est"),
             "fa_url": fa_url(l["callsign"], l["flight_no"]),
         }
         (out if l["direction"] == "out" else ret).append(item)

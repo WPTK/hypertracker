@@ -442,18 +442,18 @@ function legEl(leg, prev, person, trip) {
   const relEl = h("span", { class: "leg__rel" });
   const arrCell = h("div", { class: "leg__arr" }, arrEl, relEl);
 
-  /* aircraft cell */
-  const bits = [];
+  /* aircraft cell: model on top, tail number and age underneath */
   const model = leg.ac_model || leg.ac_type;
-  if (model) bits.push(model);
-  if (leg.ac_age != null) bits.push(`${leg.ac_age} ${plural(leg.ac_age, "year", "years")} old`);
-  if (leg.reg) bits.push(leg.reg);
-  let acText;
-  if (bits.length) acText = bits.join(" · ");
-  else if (leg.manual) acText = "Entered by hand";
-  else if (leg.unverified) acText = "Not confirmed against the schedule";
-  else acText = "Aircraft not assigned yet";
-  const ac = h("div", { class: "leg__ac" }, h("span", { class: "sr-only", text: "Aircraft: " }), acText);
+  const meta = [];
+  if (leg.reg) meta.push(leg.reg);
+  if (leg.ac_age != null) meta.push(`${Math.round(leg.ac_age)} ${plural(Math.round(leg.ac_age), "yr", "yrs")}`);
+  const ac = h("div", { class: "leg__ac" }, h("span", { class: "sr-only", text: "Aircraft: " }));
+  if (model || meta.length) {
+    if (model) ac.append(h("span", { class: "ac__model", text: model }));
+    if (meta.length) ac.append(h("span", { class: "ac__meta", text: meta.join(" · ") }));
+  } else if (leg.manual) ac.append("Entered by hand");
+  else if (leg.unverified) ac.append("Not confirmed against the schedule");
+  else ac.append("Aircraft not assigned yet");
 
   /* side cell */
   const statusEl = h("span", { class: "status" });

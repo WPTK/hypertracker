@@ -36,7 +36,11 @@ to, to_iata, to_name, to_city, to_lat, to_lon,
 dep_local, arr_local, dep_utc, arr_utc,
 reg, ac_type, ac_model, ac_age, ac_built,
 resolved (bool), manual (bool), unverified (bool),
-live_state ("airborne" | "on_ground" | null), fa_url (string | null)`.
+live_state ("airborne" | "on_ground" | null), fa_url (string | null),
+flight_status ("airborne" | "landed" | "cancelled" | "delayed" | null),
+dep_utc_est / arr_utc_est (AeroDataBox UTC strings, revised or actual, or null)`.
+- `flight_status` and the `_est` times come from AeroDataBox and are the fallback for legs airplanes.live cannot see
+  (polar and oceanic routes). They are null until the first status fetch.
 - `dep_local`/`arr_local`/`dep_utc`/`arr_utc` are the AeroDataBox strings, e.g. `"2026-10-10 08:15-04:00"` / `"2026-10-10 12:15Z"`.
 - `unverified` = a flight-number leg the user chose to keep although it could not be resolved.
 - `fa_url` is null when there is no flight number or callsign. `live_url` is removed.

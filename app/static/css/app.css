@@ -97,6 +97,8 @@
 .leg__route { grid-area: route; min-width: 0; }
 .leg__arr   { grid-area: arr; min-width: 0; }
 .leg__ac    { grid-area: ac; min-width: 0; color: var(--text-1); font-size: 14px; }
+.ac__model, .ac__meta { display: block; }
+.ac__meta  { font-size: 13px; opacity: .75; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .leg__side  { grid-area: side; display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-xs); }
 
 .leg__day  { display: block; font-weight: 700; white-space: nowrap; }
