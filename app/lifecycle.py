@@ -103,6 +103,20 @@ def _live_state(leg: dict, now_dt: dt.datetime) -> str | None:
     return state if state in ("airborne", "on_ground") else None
 
 
+def _effective_live_state(leg: dict, fs: dict, now_dt: dt.datetime) -> str | None:
+    """The state the board and the map colour by. airplanes.live wins when it sees the
+    plane; otherwise AeroDataBox's "en route" counts, because polar and oceanic legs have
+    almost no ADS-B coverage and would sit on "scheduled" for the whole flight."""
+    state = _live_state(leg, now_dt)
+    if state is not None or fs.get("state") != flightstatus.AIRBORNE:
+        return state
+    dep = parse_adb_dt(fs.get("dep_utc_est") or leg.get("dep_utc"))
+    arr = parse_adb_dt(fs.get("arr_utc_est") or leg.get("arr_utc"))
+    if dep and arr and dep - dt.timedelta(minutes=20) <= now_dt <= arr + dt.timedelta(minutes=45):
+        return "airborne"
+    return None
+
+
 def shape_trip(trip_row: dict, leg_rows: list, cities: dict | None = None) -> dict:
     """Public shape of one trip. Pure CPU / in-memory: no network, no DB."""
     cities = cities or {}
@@ -141,7 +155,7 @@ def shape_trip(trip_row: dict, leg_rows: list, cities: dict | None = None) -> di
             "resolved": bool(l["resolved"]),
             "manual": bool(l["manual"]),
             "unverified": bool(l.get("unverified")),
-            "live_state": _live_state(l, now_dt),
+            "live_state": _effective_live_state(l, fs, now_dt),
             "flight_status": fs.get("state"),
             "dep_utc_est": fs.get("dep_utc_est"),
             "arr_utc_est": fs.get("arr_utc_est"),

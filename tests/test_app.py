@@ -518,3 +518,39 @@ def test_first_time_login_is_sent_to_the_consent_page_not_denied(monkeypatch):
     # a forged error callback is not bounced
     r = c.get("/auth/callback?error=consent_required&state=forged", follow_redirects=False)
     assert r.headers["location"] == "/?auth=denied"
+
+
+def test_aerodatabox_en_route_colours_the_leg_when_airplanes_live_sees_nothing(client, monkeypatch):
+    """AC9 over the Arctic: no ADS-B sighting for hours, but AeroDataBox says EnRoute."""
+    import app.airplaneslive as al
+    from app import flightstatus
+
+    now = lifecycle.now()
+    with db.get_conn() as c:
+        tid = c.execute(
+            "INSERT INTO trips (owner_id,owner_name,created_at,ends_at,updated_at) VALUES ('m_x','X',?,?,?)",
+            (now, now + 7200, now),
+        ).lastrowid
+        c.execute(
+            "INSERT INTO legs (trip_id,direction,seq,date_local,flight_no,callsign,dep_utc,arr_utc,"
+            "resolved,manual) VALUES (?, 'out',0,?, 'DL1','DAL1',?,?,1,0)",
+            (tid, day(0), fmt(now - 1800), fmt(now + 3600)),
+        )
+    leg = lambda: client.get("/api/trips").json()["trips"][0]["out"][0]  # noqa: E731
+    monkeypatch.setattr(al, "get_state", lambda cs: None, raising=False)
+    flightstatus.reset()
+    try:
+        assert leg()["live_state"] is None
+        flightstatus._state[("DL1", day(0))] = {
+            "state": "airborne", "dep_utc_est": fmt(now - 1500), "arr_utc_est": fmt(now + 3600),
+        }
+        assert leg()["live_state"] == "airborne" and leg()["flight_status"] == "airborne"
+        # airplanes.live still wins when it has a sighting
+        monkeypatch.setattr(al, "get_state", lambda cs: "on_ground", raising=False)
+        assert leg()["live_state"] == "on_ground"
+        # a stale "airborne" long after the revised arrival is not reported
+        monkeypatch.setattr(al, "get_state", lambda cs: None, raising=False)
+        flightstatus._state[("DL1", day(0))]["arr_utc_est"] = fmt(now - 7200)
+        assert leg()["live_state"] is None
+    finally:
+        flightstatus.reset()
