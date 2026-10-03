@@ -1,0 +1,66 @@
+/* Route map. Uses WPTK tokens (with fallbacks) and the shell's .btn/.chip classes. */
+.hmap {
+  --hm-airborne: var(--accent-2, #3fc9b0);
+  --hm-ground: var(--accent-1, #b58cf0);
+  --hm-scheduled: var(--accent-0, #6f95f5);
+  --hm-selected: var(--text-0, #ffffff);
+  --hm-bg: var(--bg-0, #0b0e17);
+  --hm-surface: var(--surface, #141a2a);
+  --hm-line: var(--line, #2a3350);
+  --hm-text: var(--text-0, #eef1fa);
+  --hm-muted: var(--text-1, #a9b2cc);
+  background: var(--hm-surface);
+  border: 1px solid var(--hm-line);
+  border-radius: var(--radius-lg, 16px);
+  padding: 12px;
+  color: var(--hm-text);
+}
+.hmap[hidden] { display: none; }
+.hmap__bar { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.hmap__chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0; }
+.hmap__fit { flex: none; }
+.hmap__stage { position: relative; height: clamp(320px, 62vh, 580px); border-radius: var(--radius, 10px); overflow: hidden; background: var(--hm-bg); }
+.hmap__map { position: absolute; inset: 0; background: var(--hm-bg); }
+.hmap__map[hidden] { display: none; }
+.hmap .leaflet-container { font-family: inherit; background: var(--hm-bg); }
+.hmap .leaflet-container:focus-visible { outline: 2px solid var(--hm-scheduled); outline-offset: -2px; }
+
+/* Dark: filter the tile pane only. Markers and arcs live in other panes. */
+.hmap[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.5); }
+.hmap[data-theme="light"] .leaflet-tile-pane { filter: none; }
+
+.hmap .leaflet-control-attribution { background: color-mix(in srgb, var(--hm-bg) 80%, transparent); color: var(--hm-muted); }
+.hmap .leaflet-control-attribution a { color: var(--hm-text); }
+.hmap .leaflet-bar a { background: var(--hm-surface); color: var(--hm-text); border-color: var(--hm-line); }
+.hmap .leaflet-bar a:hover { background: var(--hm-bg); }
+.hmap .leaflet-tooltip { background: var(--hm-surface); color: var(--hm-text); border: 1px solid var(--hm-line); box-shadow: none; font: 12px/1.3 var(--font-mono, ui-monospace, monospace); }
+.hmap .leaflet-tooltip-top::before { border-top-color: var(--hm-line); }
+
+.hmap__msg, .hmap__empty, .hmap__notice { margin: 0; color: var(--hm-text); }
+.hmap__msg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.hmap__msg[hidden], .hmap__empty[hidden], .hmap__notice[hidden] { display: none; }
+.hmap__msg p { margin: 0; }
+.hmap__empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--hm-surface); border: 1px solid var(--hm-line); border-radius: var(--radius, 10px); padding: 8px 14px; z-index: 500; pointer-events: none; }
+.hmap__notice { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 900; background: var(--hm-surface); border: 1px solid var(--hm-line); border-radius: var(--radius, 10px); padding: 8px 12px; font-size: 13px; }
+
+/* Airport pins: focusable dot; lit pins get a larger dot with a ring (shape, not hue). */
+.hmap .hmap-pin { background: none; border: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.hmap .hmap-pin__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--hm-text); border: 2px solid var(--hm-bg); box-shadow: 0 0 0 1px var(--hm-muted); box-sizing: content-box; transition: transform .12s; }
+.hmap .hmap-pin.is-lit .hmap-pin__dot { transform: scale(1.5); box-shadow: 0 0 0 2px var(--hm-selected); }
+.hmap .hmap-pin:focus-visible { outline: 2px solid var(--hm-selected); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .hmap .hmap-pin__dot { transition: none; } }
+
+.hmap__legend { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--hm-muted); }
+.hmap__key { display: inline-flex; align-items: center; gap: 8px; }
+.hmap__swatch line { stroke-linecap: round; fill: none; }
+.hmap__swatch--airborne line { stroke: var(--hm-airborne); stroke-width: 5; }
+.hmap__swatch--ground line { stroke: var(--hm-ground); stroke-width: 3.5; stroke-dasharray: 7 6; }
+.hmap__swatch--scheduled line { stroke: var(--hm-scheduled); stroke-width: 2; }
+.hmap__swatch--selected line { stroke: var(--hm-selected); stroke-width: 6.5; }
+
+.hmap-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; list-style: none; }
+
+@media (max-width: 600px) {
+  .hmap { padding: 8px; }
+  .hmap__stage { height: clamp(300px, 60vh, 480px); }
+}
