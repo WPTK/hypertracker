@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import airplaneslive, auth, config, db, jobs, lifecycle, netutil, resolver, schemas
+from . import aerodatabox, airplaneslive, auth, config, db, jobs, lifecycle, netutil, preview, resolver, schemas
 from .validation import (is_valid_flight_no, normalize_airport_code, normalize_flight_no,
                          validate_leg_date)
 
@@ -62,6 +62,7 @@ async def lifespan(_: FastAPI):
         for t in tasks:
             t.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        await aerodatabox.aclose()
 
 
 app = FastAPI(title="Hyperfixed Flight Tracker", root_path=config.ROOT_PATH, lifespan=lifespan)
@@ -75,14 +76,7 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(config.BASE_DIR / "app" / "static")), name="static")
 
-try:  # the preview router is owned by another module; mount it when present
-    from . import preview as _preview
-    if hasattr(_preview, "router"):
-        app.include_router(_preview.router)
-except ImportError:
-    _preview = None
-except Exception:
-    log.exception("could not mount the preview router")
+app.include_router(preview.router)
 
 CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; "
@@ -255,13 +249,8 @@ def _etag_matches(header: str | None, etag: str) -> bool:
 
 
 def _live_updated_at(fallback: int) -> int:
-    v = getattr(airplaneslive, "last_updated", None)
-    if callable(v):
-        try:
-            v = v()
-        except Exception:
-            v = None
-    return int(v) if isinstance(v, (int, float)) and v else fallback
+    v = airplaneslive.snapshot_updated_at()
+    return int(v) if v else fallback
 
 
 @app.get("/api/trips")
