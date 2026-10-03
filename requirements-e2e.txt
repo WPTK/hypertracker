@@ -1,0 +1,5 @@
+# Optional: browser tests. Chromium itself is installed in CI with
+#   playwright install --with-deps chromium
+# and is never installed by this file.
+-r requirements-dev.txt
+playwright==1.63.0
