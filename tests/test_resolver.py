@@ -96,7 +96,7 @@ def test_ok_flight_with_aircraft(env):
     assert r["ac_age"] is not None and r["ac_built"] == "2016-11-17"
     assert r["flight_status"] == "Expected"
     assert r["candidates"] == [] and r["unverified"] is False
-    assert r["message"] == "I found DL1200: ATL to DEN."
+    assert r["message"] == "DL1200: ATL to DEN."
     assert r["date_local"] == D and r["direction"] == "out" and r["seq"] == 0
 
 
@@ -165,7 +165,7 @@ def test_204_not_found_message(env):
     env.use(Router())
     r = one()
     assert r["status"] == "not_found" and r["resolved"] == 0 and r["manual"] == 0
-    assert r["message"].startswith("I couldn't find DL1200 on ")
+    assert r["message"].startswith("DL1200 not found on ")
     assert "add the airports yourself" in r["message"]
 
 
@@ -173,7 +173,7 @@ def test_wrong_date_is_not_found_and_mentions_neighbour_day(env):
     env.use(Router({"DL1200": lambda: resp(200, "flights_wrong_date.json", D)}))
     r = one()
     assert r["status"] == "not_found" and r["resolved"] == 0 and r["dep_icao"] is None
-    assert "but I did see it on" in r["message"] and r["candidates"] == []
+    assert "but is on" in r["message"] and r["candidates"] == []
 
 
 def test_route_mismatch_with_hints_fills_manual_but_stays_not_found(env):
@@ -267,14 +267,14 @@ def test_manual_ok(env):
     r = one("", "JAX", "kden")
     assert r["status"] == "manual_ok" and r["manual"] == 1 and r["resolved"] == 0
     assert (r["dep_icao"], r["arr_icao"], r["flight_no"]) == ("KJAX", "KDEN", None)
-    assert r["message"] == "I'll use JAX to DEN."
+    assert r["message"] == "Using JAX to DEN."
     assert up.calls_n == 0
 
 
 def test_manual_unknown_airport(env):
     r = one("", "JAX", "XYZ")
-    assert r["status"] == "airport_unknown" and r["message"] == "I don't know the airport XYZ."
-    assert one("", "QQQ", "JAX")["message"] == "I don't know the airport QQQ."
+    assert r["status"] == "airport_unknown" and r["message"] == "Unknown airport XYZ."
+    assert one("", "QQQ", "JAX")["message"] == "Unknown airport QQQ."
 
 
 def test_manual_missing_side_is_invalid(env):
@@ -288,11 +288,11 @@ def test_manual_missing_side_is_invalid(env):
     [
         ((401, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
         ((403, {"message": "bad"}), "upstream_unavailable", "person who runs this board"),
-        ((429, {"message": "slow"}), "quota", "limit for flight lookups"),
-        ((500, {"message": "x"}), "upstream_unavailable", "couldn't reach"),
-        (httpx.ReadTimeout("t"), "upstream_unavailable", "couldn't reach"),
-        (httpx.ConnectError("c"), "upstream_unavailable", "couldn't reach"),
-        ((200, {"message": "junk"}), "upstream_unavailable", "couldn't reach"),
+        ((429, {"message": "slow"}), "quota", "rate limited"),
+        ((500, {"message": "x"}), "upstream_unavailable", "not responding"),
+        (httpx.ReadTimeout("t"), "upstream_unavailable", "not responding"),
+        (httpx.ConnectError("c"), "upstream_unavailable", "not responding"),
+        ((200, {"message": "junk"}), "upstream_unavailable", "not responding"),
     ],
 )
 def test_upstream_failures(env, item, status, needle):

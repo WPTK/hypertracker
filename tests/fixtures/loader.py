@@ -106,6 +106,7 @@ def env(tmp_path, monkeypatch):
         slept.append(s)
 
     monkeypatch.setattr(adb, "_sleep", fake_sleep)
+    monkeypatch.setattr(adb, "_MIN_INTERVAL", 0.0)  # pacing has its own tests
     adb.reset_state()
     airplaneslive.reset()
 

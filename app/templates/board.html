@@ -41,7 +41,7 @@
       <p class="page-head__lede">Who is in the air, who is about to be, and who has landed.</p>
     </div>
     <div class="account">
-      <span class="zulu" id="zulu" aria-hidden="true"></span>
+      <label class="tzpick"><span class="sr-only">Time zone</span><select id="tzPick" aria-label="Time zone"></select></label>
       {% if user %}
         <span class="account__name">{{ user.name }}</span>{% if is_admin %}<span class="account__admin">admin</span>{% endif %}
         <form method="post" action="logout"><button type="submit" class="btn btn--sm">Log out</button></form>
@@ -52,7 +52,7 @@
   </div>
 
   <p class="notice" id="authNote" hidden></p>
-  <noscript><p class="notice">The board needs JavaScript to load trips. I don't have a fallback for that yet.</p></noscript>
+  <noscript><p class="notice">The board needs JavaScript to load trips.</p></noscript>
 
   {% if gated %}
   <section class="hub-card gate" aria-labelledby="gateTitle">
@@ -103,9 +103,6 @@
   </section>
   {% endif %}
 
-  <footer>
-    <p>Hypertracker is a small board for friends. Schedules come from AeroDataBox and live status from airplanes.live, so either can be late.</p>
-  </footer>
 </main>
 
 <div class="sr-only" id="liveMsg" role="status" aria-live="polite"></div>

@@ -143,8 +143,8 @@ _breaker_kind: str | None = None
 
 def reset_state() -> None:
     """Clear breaker state (tests, and a hook for operators)."""
-    global _breaker_until, _breaker_kind
-    _breaker_until, _breaker_kind = 0.0, None
+    global _breaker_until, _breaker_kind, _last_call
+    _breaker_until, _breaker_kind, _last_call = 0.0, None, 0.0
 
 
 def breaker_state() -> tuple[str | None, float]:
@@ -210,6 +210,26 @@ def _warn(path: str, status, body: str = "") -> None:
     log.warning("AeroDataBox %s -> %s %s", path, status, (body or "")[:_BODY_LOG_CHARS])
 
 
+# The RapidAPI BASIC plan allows about one request per second. A flight lookup is followed
+# straight away by an aircraft lookup, so space every upstream call out.
+_MIN_INTERVAL = 1.1
+_pace_lock: asyncio.Lock | None = None
+_pace_loop: asyncio.AbstractEventLoop | None = None
+_last_call = 0.0
+
+
+async def _pace() -> None:
+    global _pace_lock, _pace_loop, _last_call
+    loop = asyncio.get_running_loop()
+    if _pace_lock is None or _pace_loop is not loop:
+        _pace_lock, _pace_loop = asyncio.Lock(), loop
+    async with _pace_lock:
+        wait = _last_call + _MIN_INTERVAL - _mono()
+        if wait > 0:
+            await _sleep(wait)
+        _last_call = _mono()
+
+
 async def _request(path: str, params: dict | None = None):
     """GET and return parsed JSON. Raises a typed UpstreamError / _NoContent.
 
@@ -225,6 +245,7 @@ async def _request(path: str, params: dict | None = None):
             await _sleep(random.uniform(0.2, 0.6))
             _check_breaker()
         try:
+            await _pace()
             r = await get_client().get(url, headers=_headers(), params=params or {}, timeout=_timeout())
         except httpx.HTTPError as e:
             _warn(path, type(e).__name__)
@@ -247,6 +268,9 @@ async def _request(path: str, params: dict | None = None):
             raise BadKey("rejected", code)
         if code == 429:
             _warn(path, code, r.text)
+            if attempt == 0 and "per second" in r.text.lower():
+                last = QuotaExceeded("per-second limit", code)
+                continue  # a burst, not a spent quota: _pace() spaces the retry, no lockout
             _trip_breaker(KIND_QUOTA)
             raise QuotaExceeded("rate limited", code)
         if code >= 500:

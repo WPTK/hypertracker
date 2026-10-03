@@ -168,11 +168,11 @@ async def preview_legs(request: Request):
     try:
         body = await request.json()
     except Exception:
-        return _error(400, "I couldn't read that request.")
+        return _error(400, "Could not read that request.")
     try:
         req = PreviewRequest.model_validate(body)
     except ValidationError:
-        return _error(400, "That request isn't in the shape I expected.")
+        return _error(400, "That request is malformed.")
     limit = _max_rows()
     if len(req.rows) > limit:
         return _error(400, f"That's too many legs at once. The limit is {limit}.")

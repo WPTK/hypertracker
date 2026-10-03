@@ -47,15 +47,15 @@ def _label(iata, icao) -> str:
 
 
 def msg_found(flight_no, dep, arr) -> str:
-    return f"I found {flight_no}: {dep} to {arr}."
+    return f"{flight_no}: {dep} to {arr}."
 
 
 def msg_manual(dep, arr) -> str:
-    return f"I'll use {dep} to {arr}."
+    return f"Using {dep} to {arr}."
 
 
 def msg_airport_unknown(code) -> str:
-    return f"I don't know the airport {code}."
+    return f"Unknown airport {code}."
 
 
 def msg_not_found(flight_no, date_iso, other_dates=()) -> str:
@@ -63,15 +63,15 @@ def msg_not_found(flight_no, date_iso, other_dates=()) -> str:
     if other_dates:
         days = " or ".join(_pretty_date(d) for d in other_dates[:2])
         return (
-            f"I couldn't find {flight_no} on {when}, but I did see it on {days}. "
+            f"{flight_no} is not scheduled on {when}, but is on {days}. "
             "Check the date, or add the airports yourself."
         )
-    return f"I couldn't find {flight_no} on {when}. Check the number and date, or add the airports yourself."
+    return f"{flight_no} not found on {when}. Check the number and date, or add the airports yourself."
 
 
 def msg_route_mismatch(flight_no, date_iso) -> str:
     return (
-        f"I found {flight_no} on {_pretty_date(date_iso)}, but not on that route. "
+        f"{flight_no} is scheduled on {_pretty_date(date_iso)}, but not on that route. "
         "Check the airports, or leave them blank."
     )
 
@@ -85,10 +85,10 @@ MSG_BAD_KEY = (
     "Please let the person who runs this board know. "
     "You can still add the airports yourself."
 )
-MSG_QUOTA = "I've hit the limit for flight lookups for now. Try again later, or add the airports yourself."
-MSG_DOWN = "I couldn't reach the flight data service. Try again in a minute, or add the airports yourself."
-MSG_DEADLINE = "That took longer than I expected. Try again in a moment, or add the airports yourself."
-MSG_INCOMPLETE = "I found that flight, but it came back without a full route. Add the airports yourself."
+MSG_QUOTA = "Flight lookups are rate limited right now. Try again in a minute, or add the airports yourself."
+MSG_DOWN = "The flight data service is not responding. Try again in a minute, or add the airports yourself."
+MSG_DEADLINE = "The lookup timed out. Try again in a moment, or add the airports yourself."
+MSG_INCOMPLETE = "That flight came back without a full route. Add the airports yourself."
 MSG_NEED_AIRPORTS = "Add a flight number, or both airports."
 
 

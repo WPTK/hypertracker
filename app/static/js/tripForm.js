@@ -166,7 +166,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
   function dirBlock(dir, label) {
     const list = h('div', { class: 'tf-rows' });
     const addBtn = h('button', { type: 'button', class: 'btn btn--sm tf-add', 'data-dir': dir }, 'Add connection');
-    const maxNote = h('p', { class: 'field__hint tf-max', hidden: true, text: `That is the most legs I can take in one direction (${MAX_ROWS}).` });
+    const maxNote = h('p', { class: 'field__hint tf-max', hidden: true, text: `Maximum legs in one direction: ${MAX_ROWS}.` });
     const fs = h('fieldset', { class: 'tf-dir', 'data-dir': dir }, h('legend', { class: 'tf-dir__legend', text: label }), list, addBtn, maxNote);
     return { fs, list, addBtn, maxNote };
   }
@@ -434,7 +434,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
       cb.addEventListener('change', () => { row.acceptUnverified = cb.checked; });
       box.append(h('div', { class: 'tf-keep' }, cb,
         h('label', { for: cb.id }, h('span', { class: 'tf-keep__title', text: 'Keep it anyway' }),
-          h('span', { class: 'field__hint', text: note || 'I will save it marked unverified on the board.' }))));
+          h('span', { class: 'field__hint', text: note || 'It will be saved marked unverified on the board.' }))));
     };
 
     if (row.local) { showError(row.local.msg, row.local.fields); return; }
@@ -473,18 +473,18 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
         });
         box.append(group);
       } else if (BLOCKING.has(st) || KEEPABLE.has(st)) {
-        showError(p.message || 'I could not check that one.', fieldsFor(row, st));
-        if (KEEPABLE.has(st)) keepAnyway(st === 'not_found' ? 'Some flights are not in the schedule yet. I will save it marked unverified on the board.' : null);
+        showError(p.message || 'Could not check that one.', fieldsFor(row, st));
+        if (KEEPABLE.has(st)) keepAnyway(st === 'not_found' ? 'Some flights are not in the schedule yet. It will be saved marked unverified on the board.' : null);
       } else if (st === '_unverified_kept') {
         box.append(h('p', { class: 'field__hint', text: p.message }));
         keepAnyway('This leg was saved without being verified.');
       } else {
         /* _offline / _throttled and anything unexpected: non-blocking note */
-        box.append(h('p', { class: 'field__hint', text: p.message || 'I could not check this one just now. You can still save it.' }));
+        box.append(h('p', { class: 'field__hint', text: p.message || 'Could not check this one just now. You can still save it.' }));
       }
     }
     if (row.dupOf) {
-      box.append(h('p', { class: 'field__hint tf-dup', text: `Same as ${row.dupOf}. I will only save it once.` }));
+      box.append(h('p', { class: 'field__hint tf-dup', text: `Same as ${row.dupOf}. It will only be saved once.` }));
     }
   }
 
@@ -554,8 +554,8 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
     row.pending = false;
     const first = res && res.ok && res.data && Array.isArray(res.data.results) ? res.data.results[0] : null;
     if (first && first.status) row.preview = first;
-    else if (res && res.status === 429) row.preview = { status: '_throttled', message: 'I am checking too fast. Give it a minute, or just save and I will check then.' };
-    else row.preview = { status: '_offline', message: 'I could not check this one just now. You can still save it, and I will check again then.' };
+    else if (res && res.status === 429) row.preview = { status: '_throttled', message: 'Too many lookups. Wait a minute, or save now and it will be checked then.' };
+    else row.preview = { status: '_offline', message: 'Could not check this one just now. You can still save it and it will be checked again then.' };
     renderResult(row);
   }
 
@@ -626,8 +626,8 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
   function describe() {
     titleEl.textContent = mode === 'edit' ? 'Edit trip' : 'Add a trip';
     descEl.textContent = mode === 'edit'
-      ? 'Change the flights or airports below. I will check anything that changed.'
-      : 'Enter a flight number and a date and I will look up the airports, times and aircraft. If a number flies several legs that day, add From and To to pick yours.';
+      ? 'Change the flights or airports below. Anything that changed will be checked.'
+      : 'Enter a flight number and a date to fill in the airports, times and aircraft. If a number flies several legs that day, add From and To to pick yours.';
     nameField.hidden = !!user || mode === 'edit';
     saveBtn.textContent = mode === 'edit' ? 'Save changes' : 'Save trip';
   }
@@ -651,7 +651,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
       from: leg.from_iata || leg.from || '',
       to: leg.to_iata || leg.to || '',
       acceptUnverified: !!leg.unverified,
-      preview: leg.unverified ? { status: '_unverified_kept', message: 'I could not verify this leg earlier, so it is kept as unverified.' } : null,
+      preview: leg.unverified ? { status: '_unverified_kept', message: 'This leg could not be verified earlier, so it is kept as unverified.' } : null,
     };
   }
 
@@ -791,7 +791,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
     if (accept) {
       const un = all.find((s) => !s.row.acceptUnverified && s.row.preview && KEEPABLE.has(s.row.preview.status));
       if (un) {
-        fail(`I can only keep unverified legs when you say so for each one. Tick Keep it anyway on ${legLabel(un.row)} too, or fix it.`,
+        fail(`Unverified legs are only kept when ticked one by one. Tick Keep it anyway on ${legLabel(un.row)} too, or fix it.`,
           un.row.resultEl.querySelector('input[type=checkbox]') || visibleFirstInput(un.row));
         return;
       }
@@ -880,7 +880,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
             : row.f[fieldsFor(row, r.status)[0]].input;
         }
       });
-      setAlert(detail.message || (used.length ? 'Some legs need another look.' : 'I could not save that. Check the details and try again.'));
+      setAlert(detail.message || (used.length ? 'Some legs need another look.' : 'Could not save that. Check the details and try again.'));
       (firstEl || saveBtn).focus();
       return;
     }
@@ -1006,8 +1006,8 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
     const when = prettyDate(first.date_local);
     rmTitle.textContent = `Remove ${what}${when ? ` on ${when}` : ''}?`;
     rmDesc.textContent = legs.length > 1
-      ? `This takes the whole trip off the board, all ${legs.length} legs. I can\'t undo it.`
-      : 'This takes the trip off the board. I can\'t undo it.';
+      ? `This takes the whole trip off the board, all ${legs.length} legs. This can\'t be undone.`
+      : 'This takes the trip off the board. This can\'t be undone.';
     rmError.textContent = '';
     rmGo.hidden = false;
     rmGo.disabled = false;

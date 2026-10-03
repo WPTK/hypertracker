@@ -2,7 +2,7 @@
    No innerHTML anywhere: every node is built with createElement and textContent. */
 import { fetchTrips } from "./api.js";
 import {
-  parseStamp, parseUtc, todayAt, dayLabel, legStatus, relativeText, displayCode, plural,
+  parseStamp, parseUtc, todayAt, dayLabel, legStatus, relativeText, displayCode, plural, fmtIn,
 } from "./format.js";
 
 const $ = (id) => document.getElementById(id);
@@ -71,19 +71,41 @@ const themeToggle = $("themeToggle");
 if (themeToggle) themeToggle.addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
 syncThemeUi();
 
-/* ---------- clock (decorative, hidden from assistive tech) ---------- */
-function tickClock() {
-  const el = $("zulu");
-  if (!el) return;
-  const d = new Date();
-  el.textContent = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} Z`;
+/* ---------- time zone: "airport" (each leg in its own local time) or an IANA zone ---------- */
+const TZ_KEY = "ht-tz";
+let deviceTz = "UTC";
+try { deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { /* keep UTC */ }
+function validTz(tz) {
+  if (tz === "airport") return true;
+  try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch (_) { return false; }
 }
-tickClock();
-setInterval(tickClock, 20000);
+let tzMode = deviceTz;
+try { const s = localStorage.getItem(TZ_KEY); if (s && validTz(s)) tzMode = s; } catch (_) { /* storage blocked */ }
+function setupTzPicker() {
+  const sel = $("tzPick");
+  if (!sel) return;
+  const opt = (v, t) => { const o = document.createElement("option"); o.value = v; o.textContent = t; return o; };
+  sel.append(opt("airport", "Airport local time"), opt(deviceTz, `My time (${deviceTz.replace(/_/g, " ")})`));
+  if (deviceTz !== "UTC") sel.append(opt("UTC", "UTC"));
+  let zones = [];
+  try { zones = Intl.supportedValuesOf("timeZone"); } catch (_) { /* older browser: the three above */ }
+  const grp = document.createElement("optgroup");
+  grp.label = "All zones";
+  for (const z of zones) if (z !== deviceTz && z !== "UTC") grp.append(opt(z, z.replace(/_/g, " ")));
+  if (grp.children.length) sel.append(grp);
+  sel.value = tzMode;
+  if (sel.value !== tzMode) { tzMode = deviceTz; sel.value = tzMode; }
+  sel.addEventListener("change", () => {
+    tzMode = sel.value;
+    try { localStorage.setItem(TZ_KEY, tzMode); } catch (_) { /* storage blocked */ }
+    refreshTimes();
+  });
+}
+setupTzPicker();
 
 /* ---------- auth messages ---------- */
 const AUTH_MESSAGES = {
-  not_member: "That Discord account isn't in the server, so I can't let it in.",
+  not_member: "That Discord account isn't in the server.",
   denied: "You cancelled the Discord login. Nothing changed.",
   error: "Discord login failed. Try again in a minute.",
   unavailable: "Discord login isn't set up on this board.",
@@ -224,7 +246,7 @@ function onFailure(err) {
     renderLoadError();
     return;
   }
-  if (!stale) announce("I couldn't refresh the board. Showing the last data I had.");
+  if (!stale) announce("Could not refresh the board. Showing the last data.");
   stale = true;
   showStale(true);
 }
@@ -235,7 +257,7 @@ function showStale(on) {
   banner.hidden = !on;
   if (on) {
     const t = state.lastOk ? new Date(state.lastOk).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "earlier";
-    $("staleText").textContent = `I couldn't refresh the board, so this is what I had at ${t}. I'll keep trying.`;
+    $("staleText").textContent = `Could not refresh the board. Showing data from ${t}. Retrying automatically.`;
   }
 }
 
@@ -254,8 +276,8 @@ function renderLoadError() {
   if (panel) panel.setAttribute("aria-busy", "false");
   boardEl.replaceChildren(
     h("div", { class: "hub-card errorstate", role: "alert" },
-      h("h2", { class: "hub-title", text: "I couldn't load the board" }),
-      h("p", { class: "hub-desc", text: "The server didn't answer. I'll try again on my own, or you can push me." }),
+      h("h2", { class: "hub-title", text: "Could not load the board" }),
+      h("p", { class: "hub-desc", text: "The server didn't answer. It retries automatically, or you can retry now." }),
       h("button", { type: "button", class: "btn btn--primary", "data-action": "retry", "data-key": "retry", text: "Try again" })),
   );
   setFilterText("The board isn't loaded.");
@@ -440,7 +462,7 @@ function legEl(leg, prev, person, trip) {
     if (a || b) route.append(h("p", { class: "leg__names", text: `${a || "Unknown"} to ${b || "unknown"}` }));
   } else {
     route.append(h("p", { class: "leg__note", text: leg.unverified
-      ? "I couldn't match this flight to the schedule, so the airports are unconfirmed."
+      ? "This flight is not in the schedule, so the airports are unconfirmed."
       : "Airports not confirmed yet." }));
   }
 
@@ -505,15 +527,20 @@ function setText(el, text) { if (el.textContent !== text) el.textContent = text;
 function refreshTimes() {
   const now = nowMs();
   for (const r of legRecs) {
-    const { leg, dep, arr } = r;
-    const today = todayAt(now, dep ? dep.offMin : null);
-    setText(r.dayEl, r.cont ? "Connecting" : (dayLabel(r.dateStr, today) || "Date not set"));
+    const { leg } = r;
+    const airport = tzMode === "airport";
+    const show = (st) => (!st ? st : airport ? { ...st, zone: st.offMin == null ? "" : "local" }
+      : st.offMin == null ? st : fmtIn(st.ms, tzMode));
+    const dep = show(r.dep), arr = show(r.arr);
+    const today = airport ? todayAt(now, dep ? dep.offMin : null) : fmtIn(now, tzMode).date;
+    const dayStr = !airport && dep && r.dep.offMin != null ? dep.date : r.dateStr;
+    setText(r.dayEl, r.cont ? "Connecting" : (dayLabel(dayStr, today) || "Date not set"));
     r.dayEl.classList.toggle("is-cont", r.cont);
     r.el.classList.toggle("is-continuation", r.cont);
     setText(r.depEl, dep ? `Departs ${dep.time} ${dep.zone}`.trim() : "Time not set");
     if (arr) {
       const sameDay = !dep || arr.date === dep.date;
-      const prefix = sameDay ? "" : dayLabel(arr.date, todayAt(now, arr.offMin)) + " ";
+      const prefix = sameDay ? "" : dayLabel(arr.date, airport ? todayAt(now, arr.offMin) : today) + " ";
       setText(r.arrEl, `Arrives ${prefix}${arr.time} ${arr.zone}`.trim());
     } else {
       setText(r.arrEl, leg.manual ? "Arrival time not set" : "Arrival time not known yet");
@@ -605,8 +632,8 @@ function applyFilter({ fromRender = false } = {}) {
   syncMap();
 }
 function announceFilterReset(what) {
-  setFilterText(`Nothing matches ${what} any more, so I cleared the filter.`);
-  announce(`Nothing matches ${what} any more, so I cleared the filter.`);
+  setFilterText(`Nothing matches ${what} any more. Filter cleared.`);
+  announce(`Nothing matches ${what} any more. Filter cleared.`);
 }
 
 function setFilter(next) {

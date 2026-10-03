@@ -452,7 +452,7 @@ def _prepare_rows(trip: schemas.TripIn):
                             direction,
                             idx,
                             "airport_unknown",
-                            f"I don't know the airport {missing[0]}. Check the code.",
+                            f"Unknown airport {missing[0]}. Check the code.",
                         )
                     )
                     continue
@@ -502,7 +502,7 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
             results = [
                 {
                     "status": "upstream_unavailable",
-                    "message": "I couldn't reach the flight data service. Try again in a minute.",
+                    "message": "The flight data service is not responding. Try again in a minute.",
                 }
             ] * len(flight_inputs)
 
@@ -535,7 +535,7 @@ async def _build_legs(trip: schemas.TripIn, old_legs: list[dict] | None = None) 
                     slot["direction"],
                     slot["index"],
                     status,
-                    leg.get("message") or "I couldn't confirm that flight.",
+                    leg.get("message") or "Could not confirm that flight.",
                 )
             )
             continue

@@ -17,7 +17,7 @@
 .account form { margin: 0; }
 .account__name { color: var(--text-0); font-weight: 600; }
 .account__admin { border: 1px solid var(--line); border-radius: 999px; padding: 0 10px; font-size: 13px; color: var(--text-1); }
-.zulu { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
+.tzpick select { font: inherit; font-size: 13px; color: var(--text-1); background: transparent; border: 1px solid var(--border, currentColor); border-radius: 6px; padding: 4px 6px; max-width: 220px; }
 
 /* ===== Notices, gate ===== */
 .notice {

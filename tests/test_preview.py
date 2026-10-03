@@ -101,7 +101,7 @@ def test_mixed_rows_keep_order_and_index(api, env):
     res = post(api, rows).json()["results"]
     assert [x["index"] for x in res] == [0, 1, 2, 3, 4]
     assert [x["status"] for x in res] == ["ok", "airport_unknown", "invalid", "not_found", "manual_ok"]
-    assert res[1]["message"] == "I don't know the airport XYZ." and res[1]["leg"] is None
+    assert res[1]["message"] == "Unknown airport XYZ." and res[1]["leg"] is None
 
 
 @pytest.mark.parametrize(

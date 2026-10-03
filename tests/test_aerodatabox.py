@@ -186,7 +186,7 @@ def test_no_key_is_bad_key_without_a_call(env, monkeypatch):
         ((404, {"message": "nope"}), adb.KIND_NO_FLIGHTS, 1),
         ((401, "error_401.json"), adb.KIND_BAD_KEY, 1),
         ((403, "error_401.json"), adb.KIND_BAD_KEY, 1),
-        ((429, "error_429.json"), adb.KIND_QUOTA, 1),
+        ((429, "error_429.json"), adb.KIND_QUOTA, 2),  # per-second 429: one paced retry, then quota
         ((500, "error_500.json"), adb.KIND_DOWN, 2),  # one retry
         ((503, "error_500.json"), adb.KIND_DOWN, 2),
         ((400, {"message": "bad"}), adb.KIND_BAD_PAYLOAD, 1),
@@ -270,7 +270,7 @@ def test_low_units_header_warns(env, caplog):
     [
         (401, "error_401.json", adb.KIND_BAD_KEY, 300),
         (403, "error_401.json", adb.KIND_BAD_KEY, 300),
-        (429, "error_429.json", adb.KIND_QUOTA, 60),
+        (429, "error_429_quota.json", adb.KIND_QUOTA, 60),
     ],
 )
 def test_breaker_short_circuits_then_recovers(env, monkeypatch, status, body, kind, seconds):
@@ -487,3 +487,19 @@ def test_aircraft_list_body_is_not_accepted(env):
 def test_aircraft_bad_reg_makes_no_call(env):
     up = env.use(Upstream((200, {"reg": "x"})))
     assert reg("../x") is None and reg("") is None and up.calls == 0
+
+
+# --- per-second limit: pacing and one retry ----------------------------------
+def test_per_second_429_retries_without_tripping_the_breaker(env):
+    up = env.use(Upstream(resp(429, "error_429.json"), resp(200, "flights_single.json", D)))
+    assert fetch().ok and up.calls == 2
+    assert adb.breaker_state() == (None, 0.0)
+
+
+def test_calls_are_spaced_by_the_minimum_interval(env, monkeypatch):
+    monkeypatch.setattr(adb, "_MIN_INTERVAL", 1.1)
+    t = [1000.0]
+    monkeypatch.setattr(adb, "_mono", lambda: t[0])
+    env.use(Upstream(resp(200, "flights_single.json", D)))
+    assert fetch("DL1200").ok and fetch("DL1201").ok
+    assert env.sleeps and abs(env.sleeps[-1] - 1.1) < 1e-6  # second call waits out the interval
