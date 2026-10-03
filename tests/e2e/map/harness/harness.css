@@ -1,0 +1,20 @@
+/* Stand-ins for the WPTK tokens the shell provides in the real app. */
+:root {
+  --bg-0: #0b0e17; --surface: #141a2a; --line: #2a3350;
+  --text-0: #eef1fa; --text-1: #a9b2cc;
+  --accent-0: #6f95f5; --accent-1: #c79bf2; --accent-2: #3fd0b4;
+  --radius: 10px; --radius-lg: 16px;
+}
+:root[data-theme="light"] {
+  --bg-0: #eef1f8; --surface: #ffffff; --line: #c5cce0;
+  --text-0: #0b1020; --text-1: #4a5470;
+  --accent-0: #2a54c8; --accent-1: #7a3fc4; --accent-2: #0b7f6b;
+}
+body { margin: 0; background: var(--bg-0); color: var(--text-0); font-family: system-ui, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 18px; margin: 0 0 12px; }
+/* Minimal shell classes (the real ones come from wptk-ext.css). */
+.btn { font: inherit; font-size: 14px; padding: 6px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text-0); border-radius: 999px; cursor: pointer; }
+.btn--sm { padding: 4px 10px; font-size: 13px; }
+.chip { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--line); background: transparent; color: var(--text-1); border-radius: 999px; cursor: pointer; }
+.chip.is-active { color: var(--text-0); border-color: var(--accent-0); background: color-mix(in srgb, var(--accent-0) 20%, transparent); }
