@@ -167,20 +167,45 @@ def _new_manual_uid() -> str:
     return "m_" + secrets.token_urlsafe(9)
 
 
-def _verify_uid_proof(uid: str, proof: str | None) -> bool:
-    """A browser may reuse its m_ uid only by presenting a manage token for a
-    trip that uid already owns. Owner ids are visible in the public trips API
-    (the board needs them for grouping), so without this check anyone could
-    post trips under someone else's name group."""
-    if not proof:
-        return False
-    ph = _hash_token(proof)
+def _resolve_anon_identity(uid: str | None, proof: str | None) -> tuple[str, str | None]:
+    """Pick the owner id for an anonymous create. Returns (uid, new_secret);
+    new_secret is set only when an identity was created or claimed now.
+
+    Owner ids are visible in the public trips API (the board needs them for
+    grouping), so reusing one needs proof: the identity secret. For identities
+    that predate the identities table, a manage token of a trip that uid still
+    owns is accepted once and the identity is claimed."""
+    now = lifecycle.now()
+    if uid and uid.startswith("m_") and proof:
+        ph = _hash_token(proof)
+        with db.get_conn() as conn:
+            row = conn.execute("SELECT secret_hash FROM identities WHERE id = ?", (uid,)).fetchone()
+            if row:
+                if hmac.compare_digest(ph, row["secret_hash"]):
+                    conn.execute("UPDATE identities SET last_seen = ? WHERE id = ?", (now, uid))
+                    return uid, None
+            else:
+                tokens = conn.execute(
+                    "SELECT manage_token FROM trips WHERE owner_id = ? AND manage_token IS NOT NULL",
+                    (uid,),
+                ).fetchall()
+                if any(hmac.compare_digest(ph, r["manage_token"]) for r in tokens):
+                    secret = secrets.token_urlsafe(24)
+                    cur = conn.execute(
+                        "INSERT OR IGNORE INTO identities (id, secret_hash, created_at, last_seen) "
+                        "VALUES (?,?,?,?)",
+                        (uid, _hash_token(secret), now, now),
+                    )
+                    if cur.rowcount:
+                        return uid, secret
+    new_uid = _new_manual_uid()
+    secret = secrets.token_urlsafe(24)
     with db.get_conn() as conn:
-        rows = conn.execute(
-            "SELECT manage_token FROM trips WHERE owner_id = ? AND manage_token IS NOT NULL",
-            (uid,),
-        ).fetchall()
-    return any(hmac.compare_digest(ph, r["manage_token"]) for r in rows)
+        conn.execute(
+            "INSERT INTO identities (id, secret_hash, created_at, last_seen) VALUES (?,?,?,?)",
+            (new_uid, _hash_token(secret), now, now),
+        )
+    return new_uid, secret
 
 
 def _authorize_manage(request: Request, trip_row, manage_token: str | None) -> None:
@@ -695,20 +720,15 @@ async def create_trip(request: Request):
         owner_name = trip.name or ""
         if not owner_name:
             raise HTTPException(400, "a name is required to post without logging in")
-        if (
-            trip.uid
-            and trip.uid.startswith("m_")
-            and await asyncio.to_thread(_verify_uid_proof, trip.uid, trip.proof)
-        ):
-            owner_id = trip.uid
-        else:
-            owner_id = _new_manual_uid()
         # Anonymous posters get a secret token (stored hashed) that lets the
         # browser edit/remove this trip later without an account.
         manage_token = secrets.token_urlsafe(24)
         manage_hash = _hash_token(manage_token)
 
     legs = await _build_legs(trip)
+    identity_secret = None
+    if not user:
+        owner_id, identity_secret = await asyncio.to_thread(_resolve_anon_identity, trip.uid, trip.proof)
     trip_id = await asyncio.to_thread(
         _insert_trip, owner_id, owner_name, trip.tz, legs, manage_hash, bool(user)
     )
@@ -716,6 +736,9 @@ async def create_trip(request: Request):
     if manage_token:
         # Returned exactly once; the browser stores it (and the uid) locally.
         resp.update(manage_token=manage_token, uid=owner_id)
+        if identity_secret:
+            # Also returned exactly once, and only when an identity was created or claimed.
+            resp["identity_secret"] = identity_secret
     return resp
 
 

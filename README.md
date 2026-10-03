@@ -149,7 +149,7 @@ Full detail is in [docs/api-contract.md](docs/api-contract.md).
 | `POST` | `/logout` | Ends the session, 303 back to the board. |
 | `GET` | `/api/trips` | Active trips with live states. Supports `ETag` / `If-None-Match`. |
 | `POST` | `/api/legs/preview` | Check rows without saving. No database writes. |
-| `POST` | `/api/trips` | Create a trip. Anonymous creates return `manage_token` and `uid`. |
+| `POST` | `/api/trips` | Create a trip. Anonymous creates return `manage_token` and `uid`, plus `identity_secret` the first time. |
 | `PUT` | `/api/trips/{id}` | Replace a trip's legs (admin, owner, or `X-Manage-Token`). |
 | `DELETE` | `/api/trips/{id}` | Remove a trip (same authorization). |
 | `GET` | `/api/airports/search?q=` | Airport typeahead. |
@@ -212,5 +212,6 @@ other use.
   two before departure.
 - Live status needs a callsign and only covers the window around the flight.
 - Identity for anonymous users is per browser. Clearing site data loses it unless
-  you saved the manage link. A dedicated identity secret is planned.
+  you saved the manage link. The browser keeps a secret (stored hashed on the server)
+  that proves it owns its name group, so grouping survives trips being removed or purged.
 - The map needs internet access for tiles.

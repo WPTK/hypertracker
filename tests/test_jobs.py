@@ -44,13 +44,30 @@ def test_housekeeping_purges_prunes_and_logs(caplog):
         c.execute("INSERT INTO users VALUES ('m_a','a',NULL,?)", (T0 - 40 * D,))  # owns a trip
     with caplog.at_level(logging.INFO, logger="hypertracker.jobs"):
         counts = jobs.housekeeping_once()
-    assert counts == {"trips": 1, "flight_cache": 1, "aircraft_cache": 1, "users": 1}
+    assert counts == {"trips": 1, "flight_cache": 1, "aircraft_cache": 1, "users": 1, "identities": 0}
     assert count("trips") == 1 and count("flight_cache") == 1 and count("aircraft_cache") == 1
     with db.get_conn() as c:
         assert {r[0] for r in c.execute("SELECT discord_id FROM users")} == {"recent", "m_a"}
         assert c.execute("SELECT id FROM trips").fetchone()[0] == keep
     msgs = [r.getMessage() for r in caplog.records if r.name == "hypertracker.jobs"]
     assert any("purged 1 trips, 1 flight_cache + 1 aircraft_cache rows, 1 orphan users" in m for m in msgs)
+
+
+def test_housekeeping_deletes_only_stale_tripless_identities(caplog):
+    add_trip(T0 + D, owner="m_owns")
+    with db.get_conn() as c:
+        for ident, seen in (
+            ("m_old", T0 - 91 * D),  # stale, no trips: deleted
+            ("m_fresh", T0 - 89 * D),  # recent, no trips: kept
+            ("m_owns", T0 - 200 * D),  # stale but owns a trip: kept
+        ):
+            c.execute("INSERT INTO identities VALUES (?,?,?,?)", (ident, "h", T0 - 300 * D, seen))
+    with caplog.at_level(logging.INFO, logger="hypertracker.jobs"):
+        counts = jobs.housekeeping_once()
+    assert counts["identities"] == 1
+    with db.get_conn() as c:
+        assert {r[0] for r in c.execute("SELECT id FROM identities")} == {"m_fresh", "m_owns"}
+    assert any("1 stale identities" in r.getMessage() for r in caplog.records)
 
 
 def test_housekeeping_logs_exceptions_and_continues(monkeypatch, caplog):

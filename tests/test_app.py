@@ -79,10 +79,108 @@ def test_anon_create_requires_name(client):
 
 def test_uid_reuse_requires_proof(client):
     j = make_trip(client).json()
-    uid, tok = j["uid"], j["manage_token"]
+    uid, secret = j["uid"], j["identity_secret"]
     assert make_trip(client, uid=uid).json()["uid"] != uid
     assert make_trip(client, uid=uid, proof="wrong").json()["uid"] != uid
-    assert make_trip(client, uid=uid, proof=tok).json()["uid"] == uid
+    assert make_trip(client, uid=uid, proof=secret).json()["uid"] == uid
+
+
+def test_new_identity_secret_returned_once(client):
+    j = make_trip(client).json()
+    assert j["uid"].startswith("m_") and len(j["identity_secret"]) >= 32
+    assert j["identity_secret"] != j["manage_token"]
+    again = make_trip(client, uid=j["uid"], proof=j["identity_secret"]).json()
+    assert again["uid"] == j["uid"] and "identity_secret" not in again
+
+
+def test_reuse_with_secret_groups_trips(client):
+    a = make_trip(client).json()
+    b = make_trip(client, uid=a["uid"], proof=a["identity_secret"]).json()
+    assert b["uid"] == a["uid"]
+    assert len({t["owner_id"] for t in trips(client)}) == 1
+    with db.get_conn() as c:
+        assert c.execute("SELECT COUNT(*) FROM identities").fetchone()[0] == 1
+
+
+def test_wrong_or_missing_secret_gets_new_identity(client):
+    a = make_trip(client).json()
+    for kw in ({}, {"proof": "nope"}, {"proof": a["manage_token"]}):
+        r = make_trip(client, uid=a["uid"], **kw).json()
+        assert r["uid"] != a["uid"] and r["identity_secret"]
+    assert make_trip(client, uid="m_unknown", proof=a["identity_secret"]).json()["uid"] != "m_unknown"
+
+
+def test_manage_token_not_proof_once_identity_exists(client):
+    a = make_trip(client).json()
+    assert make_trip(client, uid=a["uid"], proof=a["manage_token"]).json()["uid"] != a["uid"]
+
+
+def _legacy_trip(owner="m_legacy"):
+    token = "legacy-token-0123456789abcd"
+    with db.get_conn() as c:
+        c.execute(
+            "INSERT INTO trips (owner_id,owner_name,created_at,manage_token,ends_at,updated_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (owner, "Old", 1, main_mod._hash_token(token), lifecycle.now() + 86400, 1),
+        )
+    return owner, token
+
+
+def test_legacy_manage_token_claims_identity(client):
+    uid, tok = _legacy_trip()
+    r = make_trip(client, uid=uid, proof=tok).json()
+    assert r["uid"] == uid and r["identity_secret"]
+    with db.get_conn() as c:
+        row = c.execute("SELECT * FROM identities WHERE id = ?", (uid,)).fetchone()
+    assert row["secret_hash"] == main_mod._hash_token(r["identity_secret"])
+    nxt = make_trip(client, uid=uid, proof=r["identity_secret"]).json()
+    assert nxt["uid"] == uid and "identity_secret" not in nxt
+    assert make_trip(client, uid=uid, proof=tok).json()["uid"] != uid  # claimed: token no longer proof
+
+
+def test_reuse_survives_purge_of_all_trips(client):
+    a = make_trip(client).json()
+    with db.get_conn() as c:
+        c.execute("UPDATE trips SET ends_at = ?", (lifecycle.now() - 30 * 86400,))
+    assert lifecycle.purge_old_trips() >= 1
+    assert trips(client) == []
+    b = make_trip(client, uid=a["uid"], proof=a["identity_secret"]).json()
+    assert b["uid"] == a["uid"] and "identity_secret" not in b
+
+
+def test_deleting_trip_does_not_break_reuse(client):
+    a = make_trip(client).json()
+    h = {"X-Manage-Token": a["manage_token"]}
+    assert client.delete(f"/api/trips/{a['trip_id']}", headers=h).status_code == 200
+    assert make_trip(client, uid=a["uid"], proof=a["identity_secret"]).json()["uid"] == a["uid"]
+
+
+def test_secret_never_in_public_api(client):
+    a = make_trip(client).json()
+    body = client.get("/api/trips").text
+    assert a["identity_secret"] not in body
+    assert main_mod._hash_token(a["identity_secret"]) not in body
+    assert a["manage_token"] not in body
+
+
+def test_secret_stored_hashed_and_compared_constant_time(client, monkeypatch):
+    calls = []
+    real = main_mod.hmac.compare_digest
+    monkeypatch.setattr(main_mod.hmac, "compare_digest", lambda x, y: calls.append(1) or real(x, y))
+    a = make_trip(client).json()
+    assert make_trip(client, uid=a["uid"], proof=a["identity_secret"]).json()["uid"] == a["uid"]
+    assert calls
+    with db.get_conn() as c:
+        stored = c.execute("SELECT secret_hash FROM identities WHERE id = ?", (a["uid"],)).fetchone()[0]
+    assert stored == main_mod._hash_token(a["identity_secret"]) != a["identity_secret"]
+
+
+def test_logged_in_create_has_no_identity():
+    owner = TestClient(app, cookies=session_cookie(OWNER))
+    j = make_trip(owner).json()
+    assert "identity_secret" not in j and "uid" not in j
+    with db.get_conn() as c:
+        assert c.execute("SELECT COUNT(*) FROM identities").fetchone()[0] == 0
 
 
 def test_leg_cap_rejected_before_resolution(client, fake_resolver):

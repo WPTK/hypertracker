@@ -579,14 +579,31 @@ def test_proof_and_uid_sent_on_second_trip(page, api):
     type_flight(row(page), "DL1200")
     save(page)
     page.locator(".tf-saved").get_by_role("button", name="Done").click()
-    first_tok = json.loads(page.evaluate("localStorage.getItem('hft.manage')"))[0]["token"]
+    secret = json.loads(page.evaluate("localStorage.getItem('hft.identity')"))["secret"]
     open_new(page)
     assert dialog(page).locator(".tf-name input").input_value() == "Robin"
     type_flight(row(page), "DL1201")
     save(page)
     expect(page.locator(".tf-saved")).to_be_visible()
     post = stats(api)["last_post"]
-    assert post["proof"] == first_tok and post["uid"].startswith("m_")
+    assert post["proof"] == secret and post["uid"].startswith("m_")
+    # the secret is only sent once by the server; a second save must not lose it
+    assert json.loads(page.evaluate("localStorage.getItem('hft.identity')"))["secret"] == secret
+
+
+def test_legacy_identity_sends_manage_token_then_stores_secret(page, api):
+    r = seed_and_remember(page, api, [{"flight_no": "DL1200", "date": "2030-01-01"}])
+    page.evaluate(
+        """uid => localStorage.setItem('hft.identity', JSON.stringify({uid, name: 'Robin'}))""", "m_legacy1"
+    )
+    open_new(page)
+    type_flight(row(page), "DL1201")
+    save(page)
+    expect(page.locator(".tf-saved")).to_be_visible()
+    post = stats(api)["last_post"]
+    assert post["uid"] == "m_legacy1" and post["proof"] == r["token"]
+    ident = json.loads(page.evaluate("localStorage.getItem('hft.identity')"))
+    assert ident["uid"] == "m_legacy1" and re.fullmatch(r"[A-Za-z0-9_-]{32}", ident["secret"])
 
 
 # ---------------------------------------------------------------- edit and remove
@@ -773,14 +790,57 @@ def test_identity_round_trip_and_order(page):
     """,
         {"a": TOK_A, "b": TOK_B, "c": TOK_C},
     )
-    assert r["i"] == {"uid": "m_abc", "name": "Sam"}
+    assert r["i"] == {"uid": "m_abc", "name": "Sam", "secret": None}
     assert r["afterThree"] == TOK_C and r["afterForget"] == TOK_B
     assert r["t1"] is None and r["t2"] == TOK_B
     assert r["bad"] is False and r["bad2"] is False
 
 
+SECRET = "S" * 32
+
+
+def test_identity_secret_saved_and_preferred_as_proof(page):
+    r = ev(
+        page,
+        """
+      m.rememberManage(1, arg.a);
+      const legacyProof = m.proofToken();
+      m.saveIdentity('m_abc', 'Sam', arg.s);
+      const withSecret = {i: m.identity(), proof: m.proofToken()};
+      m.saveIdentity('m_abc', 'Sam2');  // no secret passed: keep the stored one
+      const kept = m.identity();
+      m.saveIdentity('m_other', 'Sam');  // different uid: the old secret does not carry over
+      return {legacyProof, withSecret, kept, other: m.identity(), stored: JSON.parse(localStorage.getItem('hft.identity'))};
+    """,
+        {"a": TOK_A, "s": SECRET},
+    )
+    assert r["legacyProof"] == TOK_A
+    assert r["withSecret"] == {"i": {"uid": "m_abc", "name": "Sam", "secret": SECRET}, "proof": SECRET}
+    assert r["kept"] == {"uid": "m_abc", "name": "Sam2", "secret": SECRET}
+    assert r["other"] == {"uid": "m_other", "name": "Sam", "secret": None}
+    assert r["stored"] == {"uid": "m_other", "name": "Sam"}
+
+
+def test_identity_legacy_record_without_secret_still_reads(page):
+    r = ev(
+        page,
+        """
+      localStorage.setItem('hft.identity', JSON.stringify({uid: 'm_old', name: 'Old'}));
+      m.rememberManage(4, arg.a);
+      const out = {i: m.identity(), proof: m.proofToken()};
+      m.saveIdentity('m_old', 'Old', arg.s);  // migrates in place when the server issues a secret
+      out.after = JSON.parse(localStorage.getItem('hft.identity'));
+      out.proofAfter = m.proofToken();
+      return out;
+    """,
+        {"a": TOK_A, "s": SECRET},
+    )
+    assert r["i"] == {"uid": "m_old", "name": "Old", "secret": None} and r["proof"] == TOK_A
+    assert r["after"] == {"uid": "m_old", "name": "Old", "secret": SECRET} and r["proofAfter"] == SECRET
+
+
 def test_identity_default_when_empty(page):
-    assert ev(page, "localStorage.clear(); return m.identity();") == {"uid": None, "name": ""}
+    assert ev(page, "localStorage.clear(); return m.identity();") == {"uid": None, "name": "", "secret": None}
 
 
 def test_identity_migrates_legacy_object_map(page):
@@ -884,6 +944,6 @@ def test_identity_works_when_storage_throws(browser, server):
         """,
             {"a": TOK_A},
         )
-        assert r == {"i": {"uid": "m_q", "name": "Q"}, "t": TOK_A, "proof": TOK_A}
+        assert r == {"i": {"uid": "m_q", "name": "Q", "secret": None}, "t": TOK_A, "proof": TOK_A}
     finally:
         ctx.close()

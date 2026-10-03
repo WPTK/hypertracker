@@ -171,6 +171,47 @@ def test_add_view_map_edit_remove(page):
     assert not page.problems, dict(kinds)
 
 
+def _add_trip(page):
+    page.click("#openAdd")
+    expect(page.locator(DLG).first).to_be_visible()
+    page.fill(f"{DLG} .tf-name input", "Alex")
+    r = page.locator(".tf-dir[data-dir=out] .tf-row").first
+    r.locator("[data-field=flight_no]").fill("CX 271")
+    r.locator("[data-field=date]").fill(D)
+    r.locator("[data-field=flight_no]").blur()
+    expect(page.locator(f"{DLG} .tf-result").first).to_contain_text("HKG", timeout=8000)
+    page.locator(f"{DLG} .tf-save").click()
+    expect(page.locator(".tf-saved")).to_be_visible(timeout=8000)
+    page.click(".tf-saved .btn--primary")
+
+
+def _owners(page):
+    return page.evaluate("fetch('api/trips').then(r => r.json()).then(j => j.trips.map(t => t.owner_id))")
+
+
+def test_same_person_after_removing_all_trips(page):
+    page.wait_for_selector("#boardPanel[aria-busy='false']", timeout=10000)
+    _add_trip(page)
+    expect(page.locator("#board")).to_contain_text("CX271", timeout=10000)
+    first = _owners(page)
+    assert len(first) == 1
+    ident = json.loads(page.evaluate("localStorage.getItem('hft.identity')"))
+    assert ident["secret"]
+
+    page.get_by_role("button", name="Remove").first.click()
+    page.locator(OPEN).get_by_role("button", name="Remove").click()
+    expect(page.locator("#board")).not_to_contain_text("CX271", timeout=10000)
+    assert _owners(page) == []
+
+    # The first trip (and its manage token) is gone; the identity secret still proves the person.
+    _add_trip(page)
+    expect(page.locator("#board")).to_contain_text("CX271", timeout=10000)
+    assert _owners(page) == first
+    expect(page.locator("#board h3")).to_have_count(1)
+    assert json.loads(page.evaluate("localStorage.getItem('hft.identity')"))["uid"] == ident["uid"]
+    assert not page.problems, page.problems
+
+
 def test_security_headers_and_no_inline_script(page, base_url):
     r = httpx.get(base_url + "/")
     csp = r.headers["content-security-policy"]

@@ -215,6 +215,7 @@ class State:
     def reset(self) -> None:
         self.trips: dict[int, dict] = {}
         self.next_id = 1
+        self.identities: dict[str, str] = {}  # uid -> identity secret
         self.posts = 0
         self.puts = 0
         self.deletes = 0
@@ -346,9 +347,21 @@ async def create_trip(request: Request):
         trip["owner_id"], trip["owner_name"] = "u1", "Alex"
     else:
         token = secrets.token_urlsafe(24)
-        uid = body.get("uid") or "m_" + secrets.token_urlsafe(9)
+        uid, proof = body.get("uid"), body.get("proof")
+        secret = None
+        if uid and uid in S.identities:
+            if not (proof and secrets.compare_digest(proof, S.identities[uid])):
+                uid = None  # wrong proof: a new identity, like the real server
+        elif uid:
+            secret = secrets.token_urlsafe(24)  # legacy uid: claim it (mock accepts any proof)
+        if not uid:
+            uid, secret = "m_" + secrets.token_urlsafe(9), secrets.token_urlsafe(24)
+        if secret:
+            S.identities[uid] = secret
         trip.update(owner_id=uid, owner_name=(body.get("name") or "Anon")[:40], token=token)
         resp.update(manage_token=token, uid=uid)
+        if secret:
+            resp["identity_secret"] = secret
     S.trips[tid] = trip
     return resp
 
