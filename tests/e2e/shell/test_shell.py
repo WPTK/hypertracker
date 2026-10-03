@@ -106,7 +106,7 @@ def test_keyboard_filter(make_page, base_url):
     page, errors = make_page()
     load(page, base_url + "/")
     status = page.locator("#filterStatus")
-    assert "Tap an airport code" in status.inner_text()
+    assert status.inner_text().strip() == ""
     # reach a token by keyboard only
     for _ in range(60):
         page.keyboard.press("Tab")

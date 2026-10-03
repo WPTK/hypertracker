@@ -284,7 +284,7 @@ def test_preview_ok_card(page, api, shot):
     r = row(page)
     type_flight(r, "dl1200")
     card = r.locator(".tf-card--ok")
-    expect(card).to_contain_text("JAX to DEN, 8:15 to 10:05, Boeing 737-800")
+    expect(card).to_contain_text("JAX to DEN, 12:15 PM to 4:05 PM, Boeing 737-800")
     expect(card.locator(".status")).to_have_text("Verified")
     assert r.locator(".tf-result").get_attribute("role") == "status"
     log = stats(api)["preview_log"][-1]["rows"][0]
@@ -361,10 +361,10 @@ def test_ambiguous_pick_sets_hints_and_repreviews(page, api, shot):
     expect(group).to_be_visible()
     radios = group.get_by_role("radio")
     expect(radios).to_have_count(2)
-    expect(group).to_contain_text("JAX to ATL, 7:00 to 8:20")
-    expect(group).to_contain_text("ATL to DEN, 11:10 to 12:40")
+    expect(group).to_contain_text("JAX to ATL, 11:00 AM to 12:20 PM")
+    expect(group).to_contain_text("ATL to DEN, 3:10 PM to 4:40 PM")
     shot(page, "03-ambiguous")
-    group.get_by_role("radio", name="ATL to DEN, 11:10 to 12:40").click()
+    group.get_by_role("radio", name="ATL to DEN, 3:10 PM to 4:40 PM").click()
     expect(r.locator(".tf-card--ok")).to_contain_text("ATL to DEN")
     assert f(r, "from").input_value() == "KATL" and f(r, "to").input_value() == "KDEN"
     last = stats(api)["preview_log"][-1]["rows"][0]

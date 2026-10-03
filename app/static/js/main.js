@@ -593,7 +593,7 @@ function applyFilter({ fromRender = false } = {}) {
   const total = legRecs.length;
   if (!state.data) setFilterText("Loading the board.");
   else if (!total) setFilterText("Nothing on the board yet.");
-  else if (!active) setFilterText("Tap an airport code or flight number to highlight it.");
+  else if (!active) setFilterText("");
   else {
     const label = f.tok ? h("strong", { text: f.tok }) : h("strong", { text: dayLabel(f.date, todayAt(nowMs(), null)) });
     setFilterText(f.tok ? "Highlighting " : "Showing ", label,

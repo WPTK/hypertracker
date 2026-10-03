@@ -9,6 +9,7 @@
    losing what was typed. Rows are checked live against POST api/legs/preview. */
 
 import { request } from './api.js';
+import { parseStamp, fmtIn } from './format.js';
 import {
   identity, saveIdentity, manageToken, rememberManage, forgetManage, proofToken,
 } from './identity.js';
@@ -59,9 +60,14 @@ function pad(n) { return String(n).padStart(2, '0'); }
 function isoDate(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 function shiftDays(d, n) { const c = new Date(d); c.setDate(c.getDate() + n); return c; }
 
+let deviceTz = 'UTC';
+try { deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (err) { /* keep UTC */ }
+
+/* Same clock as the board: the viewer's own zone and locale. */
 function clock(local) {
-  const m = /(\d{2}):(\d{2})/.exec(local || '');
-  return m ? `${Number(m[1])}:${m[2]}` : '';
+  const st = parseStamp(local);
+  if (!st) return '';
+  return st.offMin == null ? `${Number(st.time.slice(0, 2))}:${st.time.slice(3)}` : fmtIn(st.ms, deviceTz).time;
 }
 function code(leg, side) { return leg[side + '_iata'] || leg[side] || ''; }
 
