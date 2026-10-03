@@ -260,6 +260,11 @@ def test_map_view_and_theme_wiring(make_page, base_url):
     page.wait_for_selector("#mapPanel:not([hidden])")
     assert page.locator("#boardPanel").is_hidden()
     assert page.get_by_role("button", name="Map").get_attribute("aria-pressed") == "true"
+    # The map module is loaded with a dynamic import(); on a slow runner it can still be in
+    # flight when the panel appears, so wait for the calls instead of reading them at once.
+    page.wait_for_function(
+        "window.__mapCalls && ['setTheme','show','update'].every(n => window.__mapCalls.some(c => c[0] === n))"
+    )
     calls = [c[0] for c in page.evaluate("window.__mapCalls")]
     assert "setTheme" in calls and "show" in calls and "update" in calls
     page.get_by_role("button", name=" theme. Switch to light.", exact=False).click()
