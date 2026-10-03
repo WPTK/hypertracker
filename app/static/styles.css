@@ -93,6 +93,7 @@ h1{font-family:'DM Serif Display',Georgia,serif;font-size:clamp(2rem,5vw,3.1rem)
 
 .mapcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;display:none}
 #map{height:460px;width:100%;border-radius:6px;background:var(--surface-subtle)}
+#map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.9) saturate(.5)}
 .leaflet-container{background:#0a0a0a}
 .leaflet-control-attribution{background:rgba(14,14,14,.7)!important;color:var(--text-faint)!important}
 .leaflet-control-attribution a{color:var(--text-muted)!important}
