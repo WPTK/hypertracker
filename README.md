@@ -115,7 +115,7 @@ All settings come from the environment (or `.env`). A commented template is in
 | `AERODATABOX_AUTH` | `rapidapi` | `rapidapi` or `apimarket` header scheme. |
 | `FLIGHT_CACHE_TTL_PAST` | `2592000` | Seconds to cache flights already flown. |
 | `FLIGHT_CACHE_TTL_NEAR` | `21600` | Seconds to cache upcoming flights. |
-| `FLIGHT_NEGATIVE_TTL` | `300` | Seconds to cache "not found". |
+| `FLIGHT_NEGATIVE_TTL` | `600` | Seconds to cache "not found". |
 | `AIRCRAFT_CACHE_TTL` | `7776000` | Seconds to cache aircraft. |
 | `FLIGHT_WINDOW_PAST_DAYS` | `2` | Oldest accepted flight date, in days before today. |
 | `FLIGHT_WINDOW_FUTURE_DAYS` | `330` | Furthest accepted flight date, in days ahead. |

@@ -16,7 +16,7 @@ def make_csv(rows):
 
 @pytest.fixture
 def tmpdb(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "t.db"))
+    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "airports-test.db"))
     db.init_db()
     return config.DB_PATH
 

@@ -107,7 +107,7 @@ TRUSTED_PROXY = os.getenv("TRUSTED_PROXY", "none").strip().lower()
 # --- Flight resolution knobs (read by the resolver with getattr defaults) ---
 FLIGHT_CACHE_TTL_PAST = int(os.getenv("FLIGHT_CACHE_TTL_PAST", "2592000"))
 FLIGHT_CACHE_TTL_NEAR = int(os.getenv("FLIGHT_CACHE_TTL_NEAR", "21600"))
-FLIGHT_NEGATIVE_TTL = int(os.getenv("FLIGHT_NEGATIVE_TTL", "300"))
+FLIGHT_NEGATIVE_TTL = int(os.getenv("FLIGHT_NEGATIVE_TTL", "600"))
 FLIGHT_WINDOW_PAST_DAYS = int(os.getenv("FLIGHT_WINDOW_PAST_DAYS", "2"))
 FLIGHT_WINDOW_FUTURE_DAYS = int(os.getenv("FLIGHT_WINDOW_FUTURE_DAYS", "330"))
 UPSTREAM_TIMEOUT = float(os.getenv("UPSTREAM_TIMEOUT", "8"))
