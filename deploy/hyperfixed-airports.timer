@@ -1,0 +1,11 @@
+# /etc/systemd/system/hyperfixed-airports.timer
+[Unit]
+Description=Weekly airports refresh for the Hyperfixed Flight Tracker
+
+[Timer]
+OnCalendar=Sun *-*-* 04:17:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
