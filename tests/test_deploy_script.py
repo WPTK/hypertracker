@@ -11,7 +11,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required")
+pytestmark = pytest.mark.skipif(
+    shutil.which("bash") is None or sys.platform == "win32",
+    reason="deploy.sh is bash + Linux paths; on Windows deploy by hand (see deploy/README.md)",
+)
 
 
 @pytest.fixture
