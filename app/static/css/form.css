@@ -1,0 +1,218 @@
+/* Trip form dialogs. Layout only: buttons, inputs, fields, chips and the
+   dialog surface come from wptk-ext.css. Everything here reads DS tokens, with
+   fallbacks so the module still lays out if a token is missing. */
+
+html.has-dialog { overflow: hidden; }
+
+.tf-dialog [hidden] { display: none !important; }
+
+.tf-dialog {
+  box-sizing: border-box;
+  padding: 0;
+  width: min(36rem, calc(100vw - 2 * var(--space-3, 1rem)));
+  max-width: none;
+  max-height: calc(100dvh - 2 * var(--space-3, 1rem));
+  color: var(--text-0, inherit);
+  overflow: hidden;
+}
+.tf-dialog[open] { display: flex; flex-direction: column; }
+.tf-dialog--small { width: min(26rem, calc(100vw - 2 * var(--space-3, 1rem))); }
+.tf-dialog::backdrop { background: rgb(0 0 0 / 0.55); }
+
+.tf-form, .tf-saved {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 0;
+}
+.tf-saved[hidden], .tf-form[hidden] { display: none; }
+
+.tf-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2, 0.75rem);
+  padding: var(--space-3, 1rem) var(--space-3, 1rem) 0;
+}
+.tf-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--text-0, inherit);
+}
+.tf-title:focus-visible { outline: 2px solid var(--accent-0, currentColor); outline-offset: 4px; border-radius: 4px; }
+.tf-close { min-width: 44px; min-height: 44px; margin: -6px -6px 0 0; font-size: 1.4rem; line-height: 1; }
+
+.tf-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2, 0.75rem) var(--space-3, 1rem) var(--space-3, 1rem);
+  display: grid;
+  gap: var(--space-3, 1rem);
+  align-content: start;
+}
+.tf-lead { margin: 0; color: var(--text-1, inherit); font-size: 0.95rem; line-height: 1.5; }
+
+/* sticky actions bar: stays visible while the body scrolls */
+.tf-actions {
+  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.75rem);
+  padding: var(--space-2, 0.75rem) var(--space-3, 1rem);
+  border-top: 1px solid var(--line, rgb(128 128 128 / 0.3));
+  background: var(--surface-solid, var(--surface, Canvas));
+}
+.tf-spacer { flex: 1 1 0; }
+.tf-actions .btn { min-height: 44px; }
+
+/* direction blocks */
+.tf-dir { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: var(--space-2, 0.75rem); }
+.tf-dir__legend { padding: 0; margin: 0 0 var(--space-1, 0.5rem); font-weight: 700; font-size: 1rem; color: var(--text-0, inherit); }
+.tf-rows { display: grid; gap: var(--space-2, 0.75rem); }
+.tf-add { justify-self: start; min-height: 44px; }
+.tf-max { margin: 0; }
+
+/* a leg row */
+.tf-row {
+  display: grid;
+  gap: var(--space-2, 0.75rem);
+  padding: var(--space-2, 0.75rem);
+  border: 1px solid var(--line, rgb(128 128 128 / 0.3));
+  border-radius: var(--radius, 12px);
+  min-width: 0;
+}
+.tf-row--ok { border-color: var(--accent-2, var(--line)); }
+.tf-row--bad { border-color: var(--status-danger, var(--accent-1, var(--line))); }
+.tf-row__head { display: flex; align-items: center; gap: var(--space-2, 0.75rem); min-width: 0; }
+.tf-row__tag { font-size: 0.8rem; color: var(--text-1, inherit); white-space: nowrap; }
+.tf-row__remove { margin-left: auto; min-width: 44px; min-height: 44px; font-size: 1.3rem; line-height: 1; }
+.tf-row__remove[hidden] { display: none; }
+
+/* compact grid: flight + date on one line, From + To on the next */
+.tf-row__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2, 0.75rem);
+}
+.tf-row__fields .field { min-width: 0; }
+.tf-row__fields .input { width: 100%; min-width: 0; box-sizing: border-box; min-height: 44px; }
+.tf-row__fields .field__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-row[data-kind="flight"] .tf-f--flight_no { grid-column: 1; grid-row: 1; }
+.tf-row[data-kind="flight"] .tf-f--date { grid-column: 2; grid-row: 1; }
+.tf-row[data-kind="flight"] .tf-f--from { grid-column: 1; grid-row: 2; }
+.tf-row[data-kind="flight"] .tf-f--to { grid-column: 2; grid-row: 2; }
+.tf-row[data-kind="manual"] .tf-f--from { grid-column: 1; grid-row: 1; }
+.tf-row[data-kind="manual"] .tf-f--to { grid-column: 2; grid-row: 1; }
+.tf-row[data-kind="manual"] .tf-f--date { grid-column: 1 / -1; grid-row: 2; }
+.tf-optional { color: var(--text-1, inherit); font-weight: 400; }
+.tf-f--flight_no .input, .tf-f--from .input, .tf-f--to .input { text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.tf-f--flight_no .input::placeholder, .tf-f--from .input::placeholder, .tf-f--to .input::placeholder { text-transform: none; }
+
+/* per-row kind switch */
+.tf-seg {
+  display: inline-flex;
+  border: 1px solid var(--line, rgb(128 128 128 / 0.4));
+  border-radius: 999px;
+  padding: 2px;
+  background: transparent;
+}
+.tf-seg__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-1, inherit);
+  font: inherit;
+  font-size: 0.85rem;
+  min-height: 40px;
+  padding: 0 var(--space-2, 0.75rem);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tf-seg__btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent-0, #6b8cff) 22%, transparent);
+  color: var(--text-0, inherit);
+  font-weight: 600;
+}
+.tf-seg__btn:focus-visible,
+.tf-row__remove:focus-visible,
+.tf-cands__radio:focus-visible,
+.tf-keep__box:focus-visible {
+  outline: 2px solid var(--accent-0, currentColor);
+  outline-offset: 2px;
+}
+
+/* result region under each row */
+.tf-result:empty { display: none; }
+.tf-result { display: grid; gap: var(--space-1, 0.5rem); min-width: 0; }
+.tf-result .field__error, .tf-result .field__hint { margin: 0; overflow-wrap: anywhere; }
+.tf-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1, 0.5rem) var(--space-2, 0.75rem);
+  padding: var(--space-1, 0.5rem) var(--space-2, 0.75rem);
+  border-radius: calc(var(--radius, 12px) - 4px);
+  background: color-mix(in srgb, var(--accent-2, #3fb8a8) 12%, transparent);
+  color: var(--text-0, inherit);
+  min-width: 0;
+}
+.tf-card__text { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.tf-checking { margin: 0; }
+
+/* ambiguous: choose a candidate */
+.tf-cands { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 2px; }
+.tf-cands__legend { padding: 0; margin-bottom: var(--space-1, 0.5rem); font-size: 0.9rem; color: var(--text-0, inherit); }
+.tf-cands__opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 0.75rem);
+  min-height: 44px;
+  padding: 0 var(--space-2, 0.75rem);
+  border-radius: calc(var(--radius, 12px) - 4px);
+  border: 1px solid var(--line, rgb(128 128 128 / 0.3));
+  cursor: pointer;
+}
+.tf-cands__opt:has(input:checked) { border-color: var(--accent-0, currentColor); }
+.tf-cands__radio { accent-color: var(--accent-0, currentColor); width: 1.1rem; height: 1.1rem; margin: 0; }
+
+/* keep it anyway */
+.tf-keep { display: flex; align-items: flex-start; gap: var(--space-2, 0.75rem); min-height: 44px; }
+.tf-keep__box { accent-color: var(--accent-0, currentColor); width: 1.25rem; height: 1.25rem; margin: 0.65rem 0 0; flex: none; }
+.tf-keep label { display: grid; padding: 0.5rem 0; cursor: pointer; }
+.tf-keep__title { font-weight: 600; color: var(--text-0, inherit); }
+
+/* status and alert lines */
+.tf-formstatus:empty, .tf-alert:empty { display: none; }
+.tf-formstatus, .tf-alert { margin: 0; }
+.tf-alert-extra:empty { display: none; }
+.tf-name .input { width: 100%; box-sizing: border-box; min-height: 44px; }
+
+/* saved panel */
+.tf-linkrow { display: flex; gap: var(--space-2, 0.75rem); align-items: stretch; }
+.tf-link { flex: 1 1 auto; min-width: 0; font-family: var(--mono, ui-monospace, monospace); font-size: 0.8rem; min-height: 44px; box-sizing: border-box; }
+.tf-linkrow .btn { min-height: 44px; }
+
+@media (max-width: 480px) {
+  .tf-dialog {
+    width: 100vw;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+    margin: 0;
+  }
+  .tf-dialog--small { height: auto; margin: auto; width: calc(100vw - 2 * var(--space-3, 1rem)); border-radius: var(--radius, 12px); }
+  .tf-actions { padding-bottom: calc(var(--space-2, 0.75rem) + env(safe-area-inset-bottom, 0px)); }
+  .tf-actions .tf-save { flex: 1 1 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-dialog, .tf-dialog *, .tf-dialog::backdrop { transition: none !important; animation: none !important; }
+}
