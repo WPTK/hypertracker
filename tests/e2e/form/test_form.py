@@ -89,8 +89,6 @@ def test_dialog_is_labelled_and_modal(page):
     d = dialog(page)
     labelled = d.get_attribute("aria-labelledby")
     assert page.locator(f"#{labelled}").inner_text() == "Add a trip"
-    described = d.get_attribute("aria-describedby")
-    assert page.locator(f"#{described}").inner_text().strip() != ""
     assert page.evaluate("document.querySelector('dialog.tf-dialog').matches(':modal')")
     assert page.evaluate("getComputedStyle(document.documentElement).overflow") == "hidden"
 
@@ -128,12 +126,10 @@ def test_drag_from_field_to_backdrop_does_not_close(page):
     expect(dialog(page)).to_be_visible()
 
 
-def test_name_field_and_public_notice(page, shot):
+def test_name_field_is_shown(page, shot):
     open_new(page)
     d = dialog(page)
     expect(d.locator(".tf-name")).to_be_visible()
-    expect(d.locator(".tf-name")).to_contain_text("This name is public")
-    expect(d.locator(".tf-name")).to_contain_text("Anyone with the link")
     assert f(row(page), "date").input_value() == TODAY
     shot(page, "01-new-trip")
 
@@ -525,7 +521,6 @@ def test_saved_panel_and_fragment_link_round_trip(page, api, browser, shot):
     m = re.fullmatch(re.escape(page.base) + r"/#manage=(\d+)\.([A-Za-z0-9_-]{32})", link)
     assert m, link
     assert "?" not in link
-    expect(panel).to_contain_text("Anyone who has it can change this trip")
     panel.get_by_role("button", name="Copy").click()
     expect(panel.get_by_role("status")).to_have_text("Copied.")
     assert page.evaluate("navigator.clipboard.readText()") == link

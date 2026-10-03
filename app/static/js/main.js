@@ -249,7 +249,6 @@ function renderLoadError() {
   boardEl.replaceChildren(
     h("div", { class: "hub-card errorstate", role: "alert" },
       h("h2", { class: "hub-title", text: "Could not load the board" }),
-      h("p", { class: "hub-desc", text: "The server didn't answer. It retries automatically, or you can retry now." }),
       h("button", { type: "button", class: "btn btn--primary", "data-action": "retry", "data-key": "retry", text: "Try again" })),
   );
   setFilterText("The board isn't loaded.");
@@ -351,7 +350,6 @@ function renderBoard(force) {
 function emptyState() {
   return h("div", { class: "hub-card empty" },
     h("h2", { class: "hub-title", text: "Nobody is flying right now" }),
-    h("p", { class: "hub-desc", text: "Add a flight and it stays here until it lands, plus a few hours of grace." }),
     h("button", { type: "button", class: "btn btn--primary", "data-action": "add", "data-key": "add-empty", text: "Add a trip" }));
 }
 

@@ -152,13 +152,12 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
 
   const nameInput = h('input', {
     id: ids.name, class: 'input', type: 'text', maxlength: '40', autocomplete: 'name',
-    placeholder: 'For example, Alex', 'aria-describedby': ids.nameHint,
+    placeholder: 'For example, Alex',
   });
   const nameError = h('p', { class: 'field__error', hidden: true });
   const nameField = h('div', { class: 'field tf-name' },
     h('label', { class: 'field__label', for: ids.name }, 'Your name'),
     nameInput,
-    h('p', { id: ids.nameHint, class: 'field__hint', text: 'This name is public. Anyone with the link to the board can see it.' }),
     nameError);
 
   const retAddBtn = h('button', { type: 'button', class: 'btn btn--sm tf-ret-toggle' }, 'Add return');
@@ -191,15 +190,12 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
   const copyBtn = h('button', { type: 'button', class: 'btn btn--sm' }, 'Copy');
   const copyStatus = h('p', { class: 'field__hint', role: 'status', 'aria-live': 'polite' });
   const doneBtn = h('button', { type: 'button', class: 'btn btn--primary' }, 'Done');
-  const savedLead = h('p', { id: nextId('tf-savedlead'), class: 'tf-lead', text: 'It is on the board. This browser can edit or remove the trip any time.' });
   const savedEl = h('div', { class: 'tf-saved', hidden: true },
     h('div', { class: 'tf-body' },
-      savedLead,
       h('div', { class: 'field' },
         h('label', { class: 'field__label', for: linkId }, 'Backup manage link'),
         h('div', { class: 'tf-linkrow' }, linkInput, copyBtn),
-        copyStatus),
-      h('p', { class: 'field__hint', text: 'Open this link in any browser and it gets the same edit and remove rights. Keep it somewhere safe if you might clear this browser\'s data or switch devices. Anyone who has it can change this trip.' })),
+        copyStatus)),
     h('div', { class: 'tf-actions' }, h('span', { class: 'tf-spacer' }), doneBtn));
 
   const dlg = h('dialog', { class: 'dialog tf-dialog', 'aria-labelledby': ids.title, 'aria-describedby': ids.desc }, formEl, savedEl);
@@ -434,13 +430,12 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
       markInvalid(row, fields, errId);
       row.el.classList.add('tf-row--bad');
     };
-    const keepAnyway = (note) => {
+    const keepAnyway = () => {
       const cb = h('input', { type: 'checkbox', class: 'tf-keep__box', id: `${row.id}-keep` });
       cb.checked = row.acceptUnverified;
       cb.addEventListener('change', () => { row.acceptUnverified = cb.checked; });
       box.append(h('div', { class: 'tf-keep' }, cb,
-        h('label', { for: cb.id }, h('span', { class: 'tf-keep__title', text: 'Keep it anyway' }),
-          h('span', { class: 'field__hint', text: note || 'It will be saved marked unverified on the board.' }))));
+        h('label', { for: cb.id }, h('span', { class: 'tf-keep__title', text: 'Keep it anyway' }))));
     };
 
     if (row.local) { showError(row.local.msg, row.local.fields); return; }
@@ -480,10 +475,10 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
         box.append(group);
       } else if (BLOCKING.has(st) || KEEPABLE.has(st)) {
         showError(p.message || 'Could not check that one.', fieldsFor(row, st));
-        if (KEEPABLE.has(st)) keepAnyway(st === 'not_found' ? 'Some flights are not in the schedule yet. It will be saved marked unverified on the board.' : null);
+        if (KEEPABLE.has(st)) keepAnyway();
       } else if (st === '_unverified_kept') {
         box.append(h('p', { class: 'field__hint', text: p.message }));
-        keepAnyway('This leg was saved without being verified.');
+        keepAnyway();
       } else {
         /* _offline / _throttled and anything unexpected: non-blocking note */
         box.append(h('p', { class: 'field__hint', text: p.message || 'Could not check this one just now. You can still save it.' }));
@@ -631,9 +626,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
 
   function describe() {
     titleEl.textContent = mode === 'edit' ? 'Edit trip' : 'Add a trip';
-    descEl.textContent = mode === 'edit'
-      ? 'Change the flights or airports below. Anything that changed will be checked.'
-      : 'Enter a flight number and a date to fill in the airports, times and aircraft. If a number flies several legs that day, add From and To to pick yours.';
+    descEl.hidden = true;
     nameField.hidden = !!user || mode === 'edit';
     saveBtn.textContent = mode === 'edit' ? 'Save changes' : 'Save trip';
   }
@@ -716,7 +709,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
   nameInput.addEventListener('input', () => {
     nameError.hidden = true;
     nameInput.removeAttribute('aria-invalid');
-    nameInput.setAttribute('aria-describedby', ids.nameHint);
+    nameInput.removeAttribute('aria-describedby');
   });
 
   /* ================= submit ================= */
@@ -785,7 +778,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
         nameError.id = nextId('tf-nameerr');
         nameError.hidden = false;
         nameInput.setAttribute('aria-invalid', 'true');
-        nameInput.setAttribute('aria-describedby', `${ids.nameHint} ${nameError.id}`);
+        nameInput.setAttribute('aria-describedby', nameError.id);
         fail('Add your name so people know whose trip this is.', nameInput);
         return;
       }
@@ -926,7 +919,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
     /* the form heading is hidden now: label the dialog by the saved panel's own */
     savedHeading.hidden = false;
     dlg.setAttribute('aria-labelledby', savedHeading.id);
-    dlg.setAttribute('aria-describedby', savedLead.id);
+    dlg.removeAttribute('aria-describedby');
     savedHeading.focus();
   }
   const savedHeading = h('h2', { id: nextId('tf-savedtitle'), class: 'tf-title tf-saved__title', tabindex: '-1', hidden: true, text: 'Trip saved' });
