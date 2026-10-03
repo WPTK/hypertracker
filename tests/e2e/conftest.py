@@ -63,3 +63,24 @@ def pytest_sessionfinish(session, exitstatus):
     if os.environ.get("E2E_FAIL_ON_SKIP") and _skipped and exitstatus == 0:
         print(f"\nE2E_FAIL_ON_SKIP: {len(_skipped)} browser tests were skipped; treating that as a failure.")
         session.exitstatus = 1
+
+
+@pytest.fixture
+def wait_until():
+    """Poll a JavaScript expression until it is truthy.
+
+    Playwright's own `wait_for_function` evaluates the predicate with eval() when it has
+    to keep polling, which the app's Content-Security-Policy (no unsafe-eval) correctly
+    blocks. `page.evaluate` goes through the debugger protocol instead, so use it."""
+    import time
+
+    def wait(page, expression: str, timeout_ms: int = 8000, step_ms: int = 50):
+        deadline = time.monotonic() + timeout_ms / 1000
+        while True:
+            if page.evaluate(expression):
+                return
+            if time.monotonic() > deadline:
+                raise AssertionError(f"timed out after {timeout_ms} ms waiting for: {expression}")
+            page.wait_for_timeout(step_ms)
+
+    return wait

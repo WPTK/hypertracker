@@ -252,7 +252,7 @@ def test_relative_text_updates_without_rerender(make_page, base_url):
 # ---------- view, theme ----------
 
 
-def test_map_view_and_theme_wiring(make_page, base_url):
+def test_map_view_and_theme_wiring(make_page, base_url, wait_until):
     page, errors = make_page()
     load(page, base_url + "/")
     assert page.locator("#mapPanel").is_hidden()
@@ -262,8 +262,9 @@ def test_map_view_and_theme_wiring(make_page, base_url):
     assert page.get_by_role("button", name="Map").get_attribute("aria-pressed") == "true"
     # The map module is loaded with a dynamic import(); on a slow runner it can still be in
     # flight when the panel appears, so wait for the calls instead of reading them at once.
-    page.wait_for_function(
-        "window.__mapCalls && ['setTheme','show','update'].every(n => window.__mapCalls.some(c => c[0] === n))"
+    wait_until(
+        page,
+        "!!window.__mapCalls && ['setTheme','show','update'].every(n => window.__mapCalls.some(c => c[0] === n))",
     )
     calls = [c[0] for c in page.evaluate("window.__mapCalls")]
     assert "setTheme" in calls and "show" in calls and "update" in calls

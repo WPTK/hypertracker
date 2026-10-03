@@ -73,15 +73,15 @@ def seed_and_remember(page, api, out, ret=None, name="Sam"):
 
 
 # ---------------------------------------------------------------- dialog behaviour
-def test_escape_closes_and_focus_returns_to_opener(page):
+def test_escape_closes_and_focus_returns_to_opener(page, wait_until):
     page.focus("#openAdd")
     page.keyboard.press("Enter")
     expect(dialog(page)).to_be_visible()
     page.keyboard.press("Escape")
     expect(dialog(page)).not_to_be_visible()
     # Focus restore and scroll unlock happen in the dialog's async `close` event.
-    page.wait_for_function("document.activeElement && document.activeElement.id === 'openAdd'")
-    page.wait_for_function("!document.documentElement.classList.contains('has-dialog')")
+    wait_until(page, "!!document.activeElement && document.activeElement.id === 'openAdd'")
+    wait_until(page, "!document.documentElement.classList.contains('has-dialog')")
 
 
 def test_dialog_is_labelled_and_modal(page):
