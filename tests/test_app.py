@@ -542,7 +542,9 @@ def test_aerodatabox_en_route_colours_the_leg_when_airplanes_live_sees_nothing(c
     try:
         assert leg()["live_state"] is None
         flightstatus._state[("DL1", day(0))] = {
-            "state": "airborne", "dep_utc_est": fmt(now - 1500), "arr_utc_est": fmt(now + 3600),
+            "state": "airborne",
+            "dep_utc_est": fmt(now - 1500),
+            "arr_utc_est": fmt(now + 3600),
         }
         assert leg()["live_state"] == "airborne" and leg()["flight_status"] == "airborne"
         # airplanes.live still wins when it has a sighting
