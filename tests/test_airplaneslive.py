@@ -156,6 +156,40 @@ def test_transition_airborne_to_ground_to_not_seen(clock):
     assert al.get_state("DAL1200") is None
 
 
+def test_falls_back_to_registration_when_callsign_finds_nothing(clock):
+    """Regression: AC9's schedule callsign (ACA9) matched no aircraft, so a flight in the
+    air stayed 'Scheduled'. The tail number finds it."""
+    al.set_regs({"ACA9": "C-FNND"})
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.path)
+        if "/callsign/" in request.url.path:
+            return httpx.Response(200, json={"ac": []})
+        return httpx.Response(200, json={"ac": [{"flight": "ACA0009 ", "alt_baro": 36000}]})
+
+    poll(handler, ["ACA9"], clock)
+    assert seen[0].endswith("/callsign/ACA9") and seen[1].endswith("/reg/C-FNND")
+    assert al.get_state("ACA9") == "airborne"
+
+
+def test_registration_is_not_queried_when_callsign_matches(clock):
+    al.set_regs({"DAL1200": "N123DL"})
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.path)
+        return httpx.Response(200, content=(FIX / "live_airborne.json").read_bytes())
+
+    poll(handler, ["DAL1200"], clock)
+    assert len(seen) == 1 and al.get_state("DAL1200") == "airborne"
+
+
+def test_set_regs_drops_junk():
+    al.set_regs({"ACA9": "../x", "bad cs": "C-FNND", "DAL1": "n1dl"})
+    assert al._regs == {"DAL1": "N1DL"}
+
+
 def test_failures_log_at_warning_rate_limited(clock, caplog):
     with caplog.at_level(logging.WARNING, logger="hypertracker.airplaneslive"):
         for _ in range(3):

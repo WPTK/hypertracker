@@ -7,7 +7,7 @@ import asyncio
 import datetime as dt
 import logging
 
-from . import config, db, lifecycle
+from . import airplaneslive, config, db, lifecycle
 
 log = logging.getLogger("hypertracker.jobs")
 
@@ -110,13 +110,14 @@ async def run_housekeeping_loop(interval: float = HOUSEKEEPING_INTERVAL) -> None
 _callsigns: frozenset[str] = frozenset()
 
 
-def compute_callsigns() -> set[str]:
-    """Callsigns of legs inside [departure - 20 min, arrival + 45 min]."""
+def compute_callsigns(regs: dict[str, str] | None = None) -> set[str]:
+    """Callsigns of legs inside [departure - 20 min, arrival + 45 min]. When `regs`
+    is given it is filled with callsign -> tail number for those legs."""
     now_dt = dt.datetime.fromtimestamp(lifecycle.now(), dt.UTC)
     found: set[str] = set()
     with db.get_conn() as conn:
         rows = conn.execute(
-            "SELECT l.callsign, l.dep_utc, l.arr_utc FROM legs l JOIN trips t ON t.id = l.trip_id "
+            "SELECT l.callsign, l.reg, l.dep_utc, l.arr_utc FROM legs l JOIN trips t ON t.id = l.trip_id "
             "WHERE l.callsign IS NOT NULL AND l.dep_utc IS NOT NULL AND l.arr_utc IS NOT NULL "
             "AND t.ends_at >= ?",
             (lifecycle.now() - 2 * 86400,),
@@ -124,7 +125,10 @@ def compute_callsigns() -> set[str]:
     for r in rows:
         dep, arr = lifecycle.parse_adb_dt(r["dep_utc"]), lifecycle.parse_adb_dt(r["arr_utc"])
         if dep and arr and dep - dt.timedelta(minutes=20) <= now_dt <= arr + dt.timedelta(minutes=45):
-            found.add(r["callsign"].strip().upper())
+            cs = r["callsign"].strip().upper()
+            found.add(cs)
+            if regs is not None and r["reg"]:
+                regs[cs] = r["reg"]
     return found
 
 
@@ -135,7 +139,9 @@ def callsign_supplier():
 
 async def refresh_callsigns_once() -> None:
     global _callsigns
-    _callsigns = frozenset(await asyncio.to_thread(compute_callsigns))
+    regs: dict[str, str] = {}
+    _callsigns = frozenset(await asyncio.to_thread(compute_callsigns, regs))
+    airplaneslive.set_regs(regs)
 
 
 async def run_callsign_refresher(interval: float = CALLSIGN_REFRESH_INTERVAL) -> None:

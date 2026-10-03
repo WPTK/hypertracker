@@ -56,9 +56,25 @@ def _clock() -> float:
     return time.time()
 
 
+_REG_RE = re.compile(r"^[A-Z0-9][A-Z0-9\-]{1,9}$")
+_regs: dict[str, str] = {}  # callsign -> tail number, a fallback lookup key
+
+
+def set_regs(mapping: dict[str, str]) -> None:
+    """Replace the callsign -> registration hints (set by the callsign refresher)."""
+    clean = {}
+    for cs, reg in (mapping or {}).items():
+        cs, reg = str(cs or "").strip().upper(), str(reg or "").strip().upper()
+        if _CALLSIGN_RE.match(cs) and _REG_RE.match(reg):
+            clean[cs] = reg
+    _regs.clear()
+    _regs.update(clean)
+
+
 def reset() -> None:
     """Forget everything (tests)."""
     global _snapshot_at
+    _regs.clear()
     _states.clear()
     _last_warn.clear()
     _snapshot_at = None
@@ -141,7 +157,18 @@ class _Failure(Exception):
 
 
 async def _probe(client: httpx.AsyncClient, callsign: str) -> str | None:
-    url = f"{config.AIRPLANESLIVE_BASE.rstrip('/')}/callsign/{quote(callsign, safe='')}"
+    """Look the flight up by callsign; when that finds nothing and the leg's tail
+    number is known, look the aircraft up by registration. Airlines often transmit
+    a callsign that differs from the one the schedule implies."""
+    state = await _probe_url(client, f"/callsign/{quote(callsign, safe='')}", callsign)
+    reg = _regs.get(callsign)
+    if state is None and reg:
+        state = await _probe_url(client, f"/reg/{quote(reg, safe='')}", None)
+    return state
+
+
+async def _probe_url(client: httpx.AsyncClient, path: str, callsign: str | None) -> str | None:
+    url = f"{config.AIRPLANESLIVE_BASE.rstrip('/')}{path}"
     try:
         r = await client.get(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT})
     except httpx.HTTPError as e:
