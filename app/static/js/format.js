@@ -106,6 +106,12 @@ export function legStatus(leg, nowMs) {
   if (arr != null && nowMs >= arr) return { key: "landed", label: "Landed" };
   if (leg.live_state === "on_ground") return { key: "ground", label: "On ground" };
   if (leg.unverified) return { key: "unverified", label: "Unverified" };
+  // Between the scheduled departure and arrival with no live confirmation (the live check
+  // is unavailable or has not seen the aircraft): say so without claiming it is airborne.
+  const dep = parseUtc(leg.dep_utc);
+  if (dep != null && arr != null && nowMs >= dep && nowMs < arr) {
+    return { key: "scheduled", label: "Past departure" };
+  }
   if (arr == null && leg.manual && leg.date_local) {
     const off = (parseStamp(leg.dep_local) || {}).offMin;
     if (leg.date_local < todayAt(nowMs, off == null ? null : off)) return { key: "landed", label: "Date passed" };
