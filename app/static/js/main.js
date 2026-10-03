@@ -241,10 +241,7 @@ function renderStamp() {
   const el = $("stamp");
   if (!el || !state.lastOk) return;
   const fmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  let text = `Updated ${fmt(state.lastOk)}.`;
-  const live = state.liveUpdatedAt;
-  if (live) text += ` Live status as of ${fmt(live * 1000)}.`;
-  el.textContent = text;
+  el.textContent = `Updated ${fmt(state.lastOk)}.`;
 }
 
 function renderLoadError() {
