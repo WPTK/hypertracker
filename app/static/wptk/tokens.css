@@ -1,0 +1,62 @@
+/* WPTK Design System tokens, vendored.
+   Written from the DS tokens.json (version 1) because the DS's own tokens.css
+   lags it (old --line values, no --accent-0-text). See VERSION.
+   Midnight is the default; Daylight is opt-in with <html data-theme="light">. */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-0: #0b1220;
+  --bg-1: #121b2e;
+  --text-0: #f4f6f8;
+  --text-1: #aab4c2;
+  --line: #546886;
+  --accent-0: #2d5bff;
+  --accent-0-text: #4a71ff;
+  --accent-1: #b14dff;
+  --accent-2: #1aa7a1;
+  --surface: rgba(18, 27, 46, 0.78);
+  --surface-2: rgba(18, 27, 46, 0.55);
+  --surface-3: rgba(11, 18, 32, 0.70);
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.25);
+  --shadow: 0 20px 70px rgba(0,0,0,.35);
+  --shadow-soft: 0 12px 38px rgba(0,0,0,.24);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-0: #f7f9fc;
+  --bg-1: #e9edf4;
+  --text-0: #0e1422;
+  --text-1: #4a5568;
+  --line: #7589aa;
+  --accent-0: #2d5bff;
+  --accent-0-text: #2d5bff;
+  --accent-1: #9e3edc;
+  --accent-2: #138f8a;
+  --surface: rgba(255,255,255,0.75);
+  --surface-2: rgba(255,255,255,0.60);
+  --surface-3: rgba(233,237,244,0.80);
+  --shadow-sm: 0 6px 18px rgba(6,10,18,.15);
+  --shadow: 0 20px 70px rgba(6, 10, 18, .12);
+  --shadow-soft: 0 12px 38px rgba(6, 10, 18, .10);
+}
+:root {
+  --maxw: 1360px;
+  --gutter: clamp(18px, 2.5vw, 34px);
+  --space-xs: 6px;
+  --space-sm: 10px;
+  --space-md: 14px;
+  --space-lg: 18px;
+  --space-xl: 24px;
+  --space-xxl: 36px;
+  --radius-lg: 22px;
+  --radius: 16px;
+  --radius-sm: 12px;
+  --font: "Manrope", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/Manrope-VariableFont_wght.ttf") format("truetype");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
