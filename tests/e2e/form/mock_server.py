@@ -15,6 +15,7 @@ Flight numbers:
   any other well-formed number: not_found
 Manual rows: ok if both airports are known, else airport_unknown.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -52,10 +53,16 @@ AMBIGUOUS = {
     "AA100": [("KJAX", "KATL", "07:00", "08:20"), ("KATL", "KDEN", "11:10", "12:40")],
 }
 STATUS_ONLY = {
-    "DL9999": ("not_found", "I couldn't find DL9999 on that date. Check the date, or add the airports yourself."),
+    "DL9999": (
+        "not_found",
+        "I couldn't find DL9999 on that date. Check the date, or add the airports yourself.",
+    ),
     "DL7777": ("invalid", "DL7777 isn't a flight number I can look up."),
     "DL8888": ("out_of_window", "That date is outside the range I can check."),
-    "UA1": ("upstream_unavailable", "The flight data service isn't answering right now. I can keep it unverified."),
+    "UA1": (
+        "upstream_unavailable",
+        "The flight data service isn't answering right now. I can keep it unverified.",
+    ),
     "BA1": ("quota", "I've used up today's flight lookups. I can keep it unverified."),
 }
 KEEPABLE = {"not_found", "upstream_unavailable", "quota"}
@@ -72,21 +79,51 @@ def icao(code: str) -> str | None:
     return IATA_TO_ICAO.get(code)
 
 
-def leg_for(direction: str, seq: int, date: str, flight_no: str | None, f: str, t: str,
-            dep: str | None = None, arr: str | None = None, model: str | None = None,
-            unverified: bool = False) -> dict:
+def leg_for(
+    direction: str,
+    seq: int,
+    date: str,
+    flight_no: str | None,
+    f: str,
+    t: str,
+    dep: str | None = None,
+    arr: str | None = None,
+    model: str | None = None,
+    unverified: bool = False,
+) -> dict:
     fa, ta = AIRPORTS.get(f), AIRPORTS.get(t)
     leg = {
-        "direction": direction, "seq": seq, "date_local": date, "flight_no": flight_no or None, "callsign": None,
-        "from": f, "from_iata": fa[0] if fa else None, "from_name": fa[1] if fa else None, "from_city": fa[2] if fa else None,
-        "from_lat": None, "from_lon": None,
-        "to": t, "to_iata": ta[0] if ta else None, "to_name": ta[1] if ta else None, "to_city": ta[2] if ta else None,
-        "to_lat": None, "to_lon": None,
-        "dep_local": f"{date} {dep}-04:00" if dep else None, "arr_local": f"{date} {arr}-06:00" if arr else None,
-        "dep_utc": None, "arr_utc": None,
-        "reg": None, "ac_type": None, "ac_model": model, "ac_age": None, "ac_built": None,
-        "resolved": bool(flight_no) and not unverified, "manual": not flight_no, "unverified": unverified,
-        "live_state": None, "fa_url": None,
+        "direction": direction,
+        "seq": seq,
+        "date_local": date,
+        "flight_no": flight_no or None,
+        "callsign": None,
+        "from": f,
+        "from_iata": fa[0] if fa else None,
+        "from_name": fa[1] if fa else None,
+        "from_city": fa[2] if fa else None,
+        "from_lat": None,
+        "from_lon": None,
+        "to": t,
+        "to_iata": ta[0] if ta else None,
+        "to_name": ta[1] if ta else None,
+        "to_city": ta[2] if ta else None,
+        "to_lat": None,
+        "to_lon": None,
+        "dep_local": f"{date} {dep}-04:00" if dep else None,
+        "arr_local": f"{date} {arr}-06:00" if arr else None,
+        "dep_utc": None,
+        "arr_utc": None,
+        "reg": None,
+        "ac_type": None,
+        "ac_model": model,
+        "ac_age": None,
+        "ac_built": None,
+        "resolved": bool(flight_no) and not unverified,
+        "manual": not flight_no,
+        "unverified": unverified,
+        "live_state": None,
+        "fa_url": None,
     }
     return leg
 
@@ -101,25 +138,74 @@ def check_row(row: dict, direction="out", seq=0, kind=None) -> dict:
         bad = [c for c, i in ((row.get("from"), f), (row.get("to"), t)) if not i]
         if not row.get("from") or not row.get("to") or bad:
             name = norm(bad[0]) if bad else "that airport"
-            return {"status": "airport_unknown", "message": f"I don't know the airport {name}.", "leg": None, "candidates": []}
-        return {"status": "manual_ok", "message": "Both airports check out.", "leg": leg_for(direction, seq, date, None, f, t), "candidates": []}
+            return {
+                "status": "airport_unknown",
+                "message": f"I don't know the airport {name}.",
+                "leg": None,
+                "candidates": [],
+            }
+        return {
+            "status": "manual_ok",
+            "message": "Both airports check out.",
+            "leg": leg_for(direction, seq, date, None, f, t),
+            "candidates": [],
+        }
 
     if fn in STATUS_ONLY:
         st, msg = STATUS_ONLY[fn]
         return {"status": st, "message": msg, "leg": None, "candidates": []}
     if fn in AMBIGUOUS:
-        cands = [{"from": a, "from_iata": AIRPORTS[a][0], "to": b, "to_iata": AIRPORTS[b][0],
-                  "dep_local": f"{date} {d}-04:00", "arr_local": f"{date} {r}-04:00"} for a, b, d, r in AMBIGUOUS[fn]]
+        cands = [
+            {
+                "from": a,
+                "from_iata": AIRPORTS[a][0],
+                "to": b,
+                "to_iata": AIRPORTS[b][0],
+                "dep_local": f"{date} {d}-04:00",
+                "arr_local": f"{date} {r}-04:00",
+            }
+            for a, b, d, r in AMBIGUOUS[fn]
+        ]
         hf, ht = icao(row.get("from") or "") or "", icao(row.get("to") or "") or ""
         picked = [c for c in cands if (not hf or c["from"] == hf) and (not ht or c["to"] == ht)]
         if (hf or ht) and len(picked) == 1:
             c = picked[0]
-            return {"status": "ok", "message": "Found it.", "leg": leg_for(direction, seq, date, fn, c["from"], c["to"], c["dep_local"][11:16], c["arr_local"][11:16], "Boeing 737-800"), "candidates": []}
-        return {"status": "ambiguous", "message": f"{fn} flies two legs that day. Pick yours.", "leg": None, "candidates": cands}
+            return {
+                "status": "ok",
+                "message": "Found it.",
+                "leg": leg_for(
+                    direction,
+                    seq,
+                    date,
+                    fn,
+                    c["from"],
+                    c["to"],
+                    c["dep_local"][11:16],
+                    c["arr_local"][11:16],
+                    "Boeing 737-800",
+                ),
+                "candidates": [],
+            }
+        return {
+            "status": "ambiguous",
+            "message": f"{fn} flies two legs that day. Pick yours.",
+            "leg": None,
+            "candidates": cands,
+        }
     if fn in FLIGHTS:
         f, t, dep, arr, model = FLIGHTS[fn]
-        return {"status": "ok", "message": "Found it.", "leg": leg_for(direction, seq, date, fn, f, t, dep, arr, model), "candidates": []}
-    return {"status": "not_found", "message": f"I couldn't find {fn} on that date. Check the date, or add the airports yourself.", "leg": None, "candidates": []}
+        return {
+            "status": "ok",
+            "message": "Found it.",
+            "leg": leg_for(direction, seq, date, fn, f, t, dep, arr, model),
+            "candidates": [],
+        }
+    return {
+        "status": "not_found",
+        "message": f"I couldn't find {fn} on that date. Check the date, or add the airports yourself.",
+        "leg": None,
+        "candidates": [],
+    }
 
 
 class State:
@@ -152,7 +238,13 @@ def logged_in(request: Request) -> bool:
 
 
 def public_trip(t: dict) -> dict:
-    return {"id": t["id"], "owner_id": t["owner_id"], "owner_name": t["owner_name"], "out": t["out"], "ret": t["ret"]}
+    return {
+        "id": t["id"],
+        "owner_id": t["owner_id"],
+        "owner_name": t["owner_name"],
+        "out": t["out"],
+        "ret": t["ret"],
+    }
 
 
 @app.get("/")
@@ -178,8 +270,13 @@ def stub_api():
 @app.get("/api/trips")
 def list_trips(request: Request):
     me = "u1" if logged_in(request) else None
-    return {"trips": [public_trip(t) for t in S.trips.values()], "me": me, "is_admin": False,
-            "server_time": int(time.time()), "live_updated_at": int(time.time())}
+    return {
+        "trips": [public_trip(t) for t in S.trips.values()],
+        "me": me,
+        "is_admin": False,
+        "server_time": int(time.time()),
+        "live_updated_at": int(time.time()),
+    }
 
 
 @app.post("/api/legs/preview")
@@ -208,9 +305,21 @@ def resolve_all(body: dict):
                 legs[direction].append(r["leg"])
             elif accept and r["status"] in KEEPABLE:
                 fn = norm(row.get("flight_no"))
-                legs[direction].append(leg_for(direction, i, date, fn, icao(row.get("from") or "") or "", icao(row.get("to") or "") or "", unverified=True))
+                legs[direction].append(
+                    leg_for(
+                        direction,
+                        i,
+                        date,
+                        fn,
+                        icao(row.get("from") or "") or "",
+                        icao(row.get("to") or "") or "",
+                        unverified=True,
+                    )
+                )
             else:
-                bad.append({"direction": direction, "index": i, "status": r["status"], "message": r["message"]})
+                bad.append(
+                    {"direction": direction, "index": i, "status": r["status"], "message": r["message"]}
+                )
     return legs, bad
 
 
@@ -307,15 +416,30 @@ async def seed(request: Request):
     S.next_id += 1
     token = secrets.token_urlsafe(24)
     uid = "m_" + secrets.token_urlsafe(9)
-    S.trips[tid] = {"id": tid, "out": legs["out"], "ret": legs["ret"], "token": token, "owner_id": uid, "owner_name": body.get("name", "Seed")}
+    S.trips[tid] = {
+        "id": tid,
+        "out": legs["out"],
+        "ret": legs["ret"],
+        "token": token,
+        "owner_id": uid,
+        "owner_name": body.get("name", "Seed"),
+    }
     return {"trip_id": tid, "token": token, "uid": uid}
 
 
 @app.get("/__stats")
 def stats():
-    return {"posts": S.posts, "puts": S.puts, "deletes": S.deletes, "previews": S.previews,
-            "last_post": S.last_post, "last_put": S.last_put, "preview_log": S.preview_log,
-            "last_put_headers": S.last_put_headers, "trips": len(S.trips)}
+    return {
+        "posts": S.posts,
+        "puts": S.puts,
+        "deletes": S.deletes,
+        "previews": S.previews,
+        "last_post": S.last_post,
+        "last_put": S.last_put,
+        "preview_log": S.preview_log,
+        "last_put_headers": S.last_put_headers,
+        "trips": len(S.trips),
+    }
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
@@ -326,11 +450,14 @@ class Server:
 
     def __init__(self) -> None:
         import socket
+
         sock = socket.socket()
         sock.bind(("127.0.0.1", 0))
         self.port = sock.getsockname()[1]
         sock.close()
-        self.server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=self.port, log_level="warning"))
+        self.server = uvicorn.Server(
+            uvicorn.Config(app, host="127.0.0.1", port=self.port, log_level="warning")
+        )
         self.thread = threading.Thread(target=self.server.run, daemon=True)
 
     @property

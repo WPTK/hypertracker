@@ -1,6 +1,7 @@
 """Fixtures for the shell e2e tests: a live harness server and a Chromium page.
 
 Everything skips cleanly when Playwright or Chromium is not available."""
+
 from __future__ import annotations
 
 import glob
@@ -27,8 +28,11 @@ def _chromium_path() -> str | None:
     if env and os.path.exists(env):
         return env
     base = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "/opt/pw-browsers")
-    for pattern in ("chromium-*/chrome-linux/chrome", "chromium_headless_shell-*/chrome-linux/headless_shell",
-                    "chromium-*/chrome-linux64/chrome"):
+    for pattern in (
+        "chromium-*/chrome-linux/chrome",
+        "chromium_headless_shell-*/chrome-linux/headless_shell",
+        "chromium-*/chrome-linux64/chrome",
+    ):
         hits = sorted(glob.glob(os.path.join(base, pattern)))
         if hits:
             return hits[-1]
@@ -39,8 +43,8 @@ def _chromium_path() -> str | None:
 def base_url():
     pytest.importorskip("uvicorn")
     pytest.importorskip("fastapi")
-    import uvicorn
     import harness_app
+    import uvicorn
 
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -57,23 +61,6 @@ def base_url():
     yield f"http://127.0.0.1:{port}"
     server.should_exit = True
     thread.join(timeout=5)
-
-
-@pytest.fixture(scope="session")
-def browser():
-    sync_api = pytest.importorskip("playwright.sync_api")
-    exe = _chromium_path()
-    if not exe:
-        pytest.skip("Chromium not found (set CHROMIUM_PATH or PLAYWRIGHT_BROWSERS_PATH)")
-    pw = sync_api.sync_playwright().start()
-    try:
-        b = pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
-    except Exception as e:  # noqa: BLE001
-        pw.stop()
-        pytest.skip(f"Chromium would not launch: {e}")
-    yield b
-    b.close()
-    pw.stop()
 
 
 @pytest.fixture()
@@ -95,19 +82,37 @@ def make_page(browser, base_url, harness):
     """Factory: make_page(width=1280, height=900, theme='dark', clock=False) -> (page, errors)."""
     contexts = []
 
-    def factory(width=1280, height=900, theme="dark", clock=False, scheme=None, reduced=False, mobile=False, bypass_csp=False):
+    def factory(
+        width=1280,
+        height=900,
+        theme="dark",
+        clock=False,
+        scheme=None,
+        reduced=False,
+        mobile=False,
+        bypass_csp=False,
+    ):
         ctx = browser.new_context(
             viewport={"width": width, "height": height},
             color_scheme=scheme or "no-preference",
             reduced_motion="reduce" if reduced else "no-preference",
-            has_touch=mobile, is_mobile=mobile, bypass_csp=bypass_csp,
+            has_touch=mobile,
+            is_mobile=mobile,
+            bypass_csp=bypass_csp,
         )
         contexts.append(ctx)
         if theme in ("dark", "light"):
-            ctx.add_init_script(f"try{{ if(!localStorage.getItem('wptk-theme')) localStorage.setItem('wptk-theme','{theme}') }}catch(e){{}}")
+            ctx.add_init_script(
+                f"try{{ if(!localStorage.getItem('wptk-theme')) localStorage.setItem('wptk-theme','{theme}') }}catch(e){{}}"
+            )
         page = ctx.new_page()
         errors: list[str] = []
-        page.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type in ("error", "warning") else None)
+        page.on(
+            "console",
+            lambda m: (
+                errors.append(f"console.{m.type}: {m.text}") if m.type in ("error", "warning") else None
+            ),
+        )
         page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
         page.on("requestfailed", lambda r: errors.append(f"requestfailed: {r.url}"))
         if clock:
@@ -133,8 +138,9 @@ def axe_js():
     d = cache.parent.parent
     d.mkdir(parents=True, exist_ok=True)
     try:
-        subprocess.run(["npm", "pack", "axe-core", "--silent"], cwd=d, check=True, timeout=120,
-                       capture_output=True)
+        subprocess.run(
+            ["npm", "pack", "axe-core", "--silent"], cwd=d, check=True, timeout=120, capture_output=True
+        )
         tgz = sorted(d.glob("axe-core-*.tgz"))[-1]
         subprocess.run(["tar", "xzf", str(tgz)], cwd=d, check=True, timeout=60)
     except Exception as e:  # noqa: BLE001

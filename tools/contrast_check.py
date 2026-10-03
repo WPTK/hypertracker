@@ -10,6 +10,7 @@ must reach 3:1. Exits 1 if any pair falls short.
     python tools/contrast_check.py            # table, exit code
     python tools/contrast_check.py --markdown # table in markdown (for docs/DS_PROPOSAL.md)
 """
+
 from __future__ import annotations
 
 import re
@@ -21,8 +22,10 @@ FILES = [ROOT / "app/static/wptk/tokens.css", ROOT / "app/static/css/wptk-ext.cs
 TEXT_MIN, UI_MIN = 4.5, 3.0
 
 # Largest alpha of the three body gradient blobs (wptk.css): orchid, teal, cobalt.
-BLOBS = {"dark": [("accent-1", 0.18), ("accent-2", 0.16), ("accent-0", 0.14)],
-         "light": [("accent-1", 0.12), ("accent-2", 0.10), ("accent-0", 0.10)]}
+BLOBS = {
+    "dark": [("accent-1", 0.18), ("accent-2", 0.16), ("accent-0", 0.14)],
+    "light": [("accent-1", 0.12), ("accent-2", 0.10), ("accent-0", 0.10)],
+}
 
 
 # ---------- parsing ----------
@@ -75,6 +78,7 @@ def lum(c) -> float:
     def f(v):
         v /= 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
     return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
 
 
@@ -92,15 +96,24 @@ def grounds(v: dict[str, str], theme: str) -> dict[str, list]:
         b = c(name)
         page.append(over((b[0], b[1], b[2], alpha), c("bg-0")))
     surface = [over(c("surface"), g) for g in page]
-    surface2 = [over(c("surface-2"), g) for g in surface]            # chips, inputs, card-level fills on a panel
+    surface2 = [over(c("surface-2"), g) for g in surface]  # chips, inputs, card-level fills on a panel
     nav = [over(c("surface-3"), g) for g in page]
     dialog = [c("bg-1")]
-    hit = [over(c("tint-hover"), g) for g in surface]                # highlighted leg row
-    active = [over(c("tint-active"), g) for g in surface2]           # active chip, pressed token
-    hover2 = [over(c("tint-hover"), g) for g in surface2]            # button hover
+    hit = [over(c("tint-hover"), g) for g in surface]  # highlighted leg row
+    active = [over(c("tint-active"), g) for g in surface2]  # active chip, pressed token
+    hover2 = [over(c("tint-hover"), g) for g in surface2]  # button hover
     dangerhover = [over(c("tint-danger"), g) for g in surface2]
-    return {"page": page, "surface": surface, "surface-2": surface2, "nav": nav, "dialog": dialog,
-            "hit row": hit, "active chip": active, "button hover": hover2, "danger hover": dangerhover}
+    return {
+        "page": page,
+        "surface": surface,
+        "surface-2": surface2,
+        "nav": nav,
+        "dialog": dialog,
+        "hit row": hit,
+        "active chip": active,
+        "button hover": hover2,
+        "danger hover": dangerhover,
+    }
 
 
 def checks(v: dict[str, str], theme: str):
@@ -108,7 +121,7 @@ def checks(v: dict[str, str], theme: str):
     c = lambda n: color(v[n])  # noqa: E731
     solid = lambda n: [c(n)]  # noqa: E731
     T, U = TEXT_MIN, UI_MIN
-    rows = []   # (kind, label, fg list, ground list, min)
+    rows = []  # (kind, label, fg list, ground list, min)
 
     def add(kind, label, fg, ground, need):
         rows.append((kind, label, fg, ground, need))
@@ -117,14 +130,22 @@ def checks(v: dict[str, str], theme: str):
         add("text", f"text-0 on {g}", solid("text-0"), G[g], T)
     for g in ("page", "surface", "surface-2", "dialog", "hit row", "button hover"):
         add("text", f"text-1 on {g} (secondary text, dimmed rows, placeholders)", solid("text-1"), G[g], T)
-    add("text", "on-accent on accent-0-strong (primary button)", solid("on-accent"), solid("accent-0-strong"), T)
+    add(
+        "text",
+        "on-accent on accent-0-strong (primary button)",
+        solid("on-accent"),
+        solid("accent-0-strong"),
+        T,
+    )
     add("text", "on-accent on accent-0-strong-hover", solid("on-accent"), solid("accent-0-strong-hover"), T)
     for g in ("page", "surface", "surface-2", "dialog", "danger hover"):
         add("text", f"danger on {g} (error text, danger button)", solid("danger"), G[g], T)
 
     # UI components: borders, rings, markers (3:1 against the ground they sit on)
     for g in ("page", "surface", "dialog", "nav"):
-        add("ui", f"line-control on {g} (button, input, chip, toggle borders)", solid("line-control"), G[g], U)
+        add(
+            "ui", f"line-control on {g} (button, input, chip, toggle borders)", solid("line-control"), G[g], U
+        )
     add("ui", "line-control vs input fill (surface-2 on surface)", solid("line-control"), G["surface-2"], U)
     for g in ("page", "surface", "dialog", "surface-2", "nav", "hit row", "active chip"):
         add("ui", f"focus-ring on {g} (focus ring, hover and active borders)", solid("focus-ring"), G[g], U)
@@ -165,7 +186,9 @@ def main() -> int:
             if md:
                 print(f"| {name} | {kind} | {label} | {r:.2f}:1 | {need}:1 |")
             else:
-                print(f"{'ok  ' if ok else ('note' if kind == 'info' else 'FAIL')} {name:8} {kind:4} {r:6.2f}:1 (needs {need})  {label}")
+                print(
+                    f"{'ok  ' if ok else ('note' if kind == 'info' else 'FAIL')} {name:8} {kind:4} {r:6.2f}:1 (needs {need})  {label}"
+                )
     if failed:
         print(f"\n{failed} pair(s) below the floor", file=sys.stderr)
         return 1

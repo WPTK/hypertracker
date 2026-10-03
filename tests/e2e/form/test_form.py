@@ -4,6 +4,7 @@ Run: python -m pytest tests/e2e/form -q
 They use a mock API (mock_server.py) and a harness page; they skip when
 Playwright or Chromium is unavailable.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,8 +79,9 @@ def test_escape_closes_and_focus_returns_to_opener(page):
     expect(dialog(page)).to_be_visible()
     page.keyboard.press("Escape")
     expect(dialog(page)).not_to_be_visible()
-    assert page.evaluate("document.activeElement.id") == "openAdd"
-    assert not page.evaluate("document.documentElement.classList.contains('has-dialog')")
+    # Focus restore and scroll unlock happen in the dialog's async `close` event.
+    page.wait_for_function("document.activeElement && document.activeElement.id === 'openAdd'")
+    page.wait_for_function("!document.documentElement.classList.contains('has-dialog')")
 
 
 def test_dialog_is_labelled_and_modal(page):
@@ -99,7 +101,9 @@ def test_first_field_focused_and_trap(page):
     for key in ["Tab"] * 30 + ["Shift+Tab"] * 40:
         page.keyboard.press(key)
         # the background is inert: focus is in the dialog, or has left the page for browser chrome
-        ok = page.evaluate("(() => { const a = document.activeElement; return !a || a === document.body || !!a.closest('dialog.tf-dialog'); })()")
+        ok = page.evaluate(
+            "(() => { const a = document.activeElement; return !a || a === document.body || !!a.closest('dialog.tf-dialog'); })()"
+        )
         assert ok, key
     inside = 0
     for _ in range(12):
@@ -303,11 +307,14 @@ def test_preview_is_debounced_and_only_for_changed_rows(page, api):
     assert stats(api)["previews"] == 2  # row 1 was not re-previewed
 
 
-@pytest.mark.parametrize("flight,msg_start,field", [
-    ("DL9999", "I couldn't find DL9999", "flight_no"),
-    ("DL7777", "DL7777 isn't a flight number", "flight_no"),
-    ("DL8888", "That date is outside the range", "date"),
-])
+@pytest.mark.parametrize(
+    "flight,msg_start,field",
+    [
+        ("DL9999", "I couldn't find DL9999", "flight_no"),
+        ("DL7777", "DL7777 isn't a flight number", "flight_no"),
+        ("DL8888", "That date is outside the range", "date"),
+    ],
+)
 def test_preview_errors_use_server_message(page, flight, msg_start, field):
     open_new(page)
     r = row(page)
@@ -451,7 +458,14 @@ def test_429_keeps_form(page, api):
     open_new(page)
     set_name(page)
     type_flight(row(page), "DL1200")
-    page.route("**/api/trips", lambda r: r.fulfill(status=429, json={"detail": "Slow down"}) if r.request.method == "POST" else r.fallback())
+    page.route(
+        "**/api/trips",
+        lambda r: (
+            r.fulfill(status=429, json={"detail": "Slow down"})
+            if r.request.method == "POST"
+            else r.fallback()
+        ),
+    )
     save(page)
     expect(dialog(page).locator(".tf-alert")).to_contain_text("Try again in a few minutes")
     assert f(row(page), "flight_no").input_value() == "DL1200"
@@ -464,7 +478,9 @@ def test_network_failure_keeps_form(page, api):
     type_flight(row(page), "DL1200")
     page.route("**/api/trips", lambda r: r.abort() if r.request.method == "POST" else r.fallback())
     save(page)
-    expect(dialog(page).locator(".tf-alert")).to_have_text("Couldn't reach the server. Your entries are still here.")
+    expect(dialog(page).locator(".tf-alert")).to_have_text(
+        "Couldn't reach the server. Your entries are still here."
+    )
     assert f(row(page), "flight_no").input_value() == "DL1200"
     assert dialog(page).locator(".tf-name input").input_value() == "Kit"
     expect(dialog(page).locator(".tf-save")).to_be_enabled()
@@ -475,7 +491,10 @@ def test_network_failure_keeps_form(page, api):
 
 def test_403_on_edit_explains_and_offers_refresh(page, api):
     r = api.post("/__seed", json={"out": [{"flight_no": "DL1200", "date": TODAY}], "name": "Sam"}).json()
-    page.evaluate("""async ([id]) => { const m = await import('/static/js/identity.js'); m.rememberManage(id, 'wrongwrongwrongwrong1'); }""", [r["trip_id"]])
+    page.evaluate(
+        """async ([id]) => { const m = await import('/static/js/identity.js'); m.rememberManage(id, 'wrongwrongwrongwrong1'); }""",
+        [r["trip_id"]],
+    )
     page.reload()
     page.wait_for_selector("html[data-ready='1']")
     page.click("[data-edit]")
@@ -499,7 +518,9 @@ def test_saved_panel_and_fragment_link_round_trip(page, api, browser, shot):
     panel = page.locator(".tf-saved")
     expect(panel).to_be_visible()
     assert page.evaluate("document.activeElement.textContent") == "Trip saved"
-    assert dialog(page).get_attribute("aria-labelledby") == page.locator(".tf-saved__title").get_attribute("id")
+    assert dialog(page).get_attribute("aria-labelledby") == page.locator(".tf-saved__title").get_attribute(
+        "id"
+    )
     link = panel.locator(".tf-link").input_value()
     m = re.fullmatch(re.escape(page.base) + r"/#manage=(\d+)\.([A-Za-z0-9_-]{32})", link)
     assert m, link
@@ -545,7 +566,9 @@ def test_copy_failure_is_reported_honestly(page):
     type_flight(row(page), "DL1200")
     save(page)
     expect(page.locator(".tf-saved")).to_be_visible()
-    page.evaluate("navigator.clipboard.writeText = () => Promise.reject(new Error('no')); document.execCommand = () => false;")
+    page.evaluate(
+        "navigator.clipboard.writeText = () => Promise.reject(new Error('no')); document.execCommand = () => false;"
+    )
     page.locator(".tf-saved").get_by_role("button", name="Copy").click()
     expect(page.locator(".tf-saved").get_by_role("status")).to_contain_text("Couldn't copy it automatically")
 
@@ -569,7 +592,8 @@ def test_proof_and_uid_sent_on_second_trip(page, api):
 # ---------------------------------------------------------------- edit and remove
 def seed_mixed(page, api):
     return seed_and_remember(
-        page, api,
+        page,
+        api,
         out=[{"flight_no": "DL1200", "date": "2026-10-10"}],
         ret=[{"from": "KDEN", "to": "KJAX", "date": "2026-10-12"}],
     )
@@ -643,7 +667,10 @@ def test_remove_404_means_already_removed(page, api):
 
 def test_remove_403_shows_inline_error(page, api):
     r = api.post("/__seed", json={"out": [{"flight_no": "DL1200", "date": TODAY}]}).json()
-    page.evaluate("""async ([id]) => { const m = await import('/static/js/identity.js'); m.rememberManage(id, 'wrongwrongwrongwrong1'); }""", [r["trip_id"]])
+    page.evaluate(
+        """async ([id]) => { const m = await import('/static/js/identity.js'); m.rememberManage(id, 'wrongwrongwrongwrong1'); }""",
+        [r["trip_id"]],
+    )
     page.reload()
     page.wait_for_selector("html[data-ready='1']")
     page.click("[data-remove]")
@@ -702,22 +729,22 @@ def test_keyboard_only_completion(page, api):
     page.focus("#openAdd")
     page.keyboard.press("Enter")
     expect(dialog(page)).to_be_visible()
-    page.keyboard.type("Quinn")          # name field has focus
-    page.keyboard.press("Tab")           # Flight number segment
-    page.keyboard.press("Tab")           # Airports segment
-    page.keyboard.press("Tab")           # flight number input
+    page.keyboard.type("Quinn")  # name field has focus
+    page.keyboard.press("Tab")  # Flight number segment
+    page.keyboard.press("Tab")  # Airports segment
+    page.keyboard.press("Tab")  # flight number input
     assert page.evaluate("document.activeElement.dataset.field") == "flight_no"
     page.keyboard.type("dl1200")
     expect(row(page).locator(".tf-card--ok")).to_be_visible()
-    page.keyboard.press("Enter")         # submits from a field
+    page.keyboard.press("Enter")  # submits from a field
     expect(page.locator(".tf-saved")).to_be_visible()
     assert page.evaluate("document.activeElement.textContent") == "Trip saved"
-    page.keyboard.press("Tab")           # close button
-    page.keyboard.press("Tab")           # link
-    page.keyboard.press("Tab")           # copy
+    page.keyboard.press("Tab")  # close button
+    page.keyboard.press("Tab")  # link
+    page.keyboard.press("Tab")  # copy
     page.keyboard.press("Enter")
     expect(page.locator(".tf-saved").get_by_role("status")).to_have_text("Copied.")
-    page.keyboard.press("Tab")           # done
+    page.keyboard.press("Tab")  # done
     page.keyboard.press("Enter")
     expect(dialog(page)).not_to_be_visible()
     assert page.evaluate("document.activeElement.id") == "openAdd"
@@ -733,7 +760,9 @@ def ev(page, body, arg=None):
 
 
 def test_identity_round_trip_and_order(page):
-    r = ev(page, """
+    r = ev(
+        page,
+        """
       m.saveIdentity('m_abc', 'Sam');
       const i = m.identity();
       m.rememberManage(1, arg.a); m.rememberManage(2, arg.b); m.rememberManage(1, arg.c);
@@ -741,7 +770,9 @@ def test_identity_round_trip_and_order(page):
       m.forgetManage(1);
       return {i, afterThree, afterForget: m.proofToken(), t1: m.manageToken(1), t2: m.manageToken('2'),
               bad: m.rememberManage('x', arg.a), bad2: m.rememberManage(5, 'short')};
-    """, {"a": TOK_A, "b": TOK_B, "c": TOK_C})
+    """,
+        {"a": TOK_A, "b": TOK_B, "c": TOK_C},
+    )
     assert r["i"] == {"uid": "m_abc", "name": "Sam"}
     assert r["afterThree"] == TOK_C and r["afterForget"] == TOK_B
     assert r["t1"] is None and r["t2"] == TOK_B
@@ -753,19 +784,25 @@ def test_identity_default_when_empty(page):
 
 
 def test_identity_migrates_legacy_object_map(page):
-    r = ev(page, """
+    r = ev(
+        page,
+        """
       localStorage.setItem('hft.manage', JSON.stringify({'5': arg.a, '9': arg.b, 'nope': arg.c}));
       const out = {t5: m.manageToken(5), t9: m.manageToken(9), proof: m.proofToken()};
       out.stored = JSON.parse(localStorage.getItem('hft.manage'));
       return out;
-    """, {"a": TOK_A, "b": TOK_B, "c": TOK_C})
+    """,
+        {"a": TOK_A, "b": TOK_B, "c": TOK_C},
+    )
     assert r["t5"] == TOK_A and r["t9"] == TOK_B and r["proof"] == TOK_B
     assert isinstance(r["stored"], list) and [e["tripId"] for e in r["stored"]] == ["5", "9"]
     assert all(set(e) == {"tripId", "token", "at"} for e in r["stored"])
 
 
 def test_identity_prune_and_proof_prefers_live(page):
-    r = ev(page, """
+    r = ev(
+        page,
+        """
       const now = Date.now();
       localStorage.setItem('hft.manage', JSON.stringify([
         {tripId: '1', token: arg.a, at: 1000},
@@ -776,26 +813,34 @@ def test_identity_prune_and_proof_prefers_live(page):
       const before = m.proofToken();
       const dropped = m.pruneManage(new Set([1, 2]));
       return {before, dropped, t3: m.manageToken(3), t4: m.manageToken(4), t2: m.manageToken(2), proof: m.proofToken()};
-    """, {"a": TOK_A, "b": TOK_B, "c": TOK_C})
-    assert r["before"] == TOK_A + "x"            # newest overall when nothing is known to be live
+    """,
+        {"a": TOK_A, "b": TOK_B, "c": TOK_C},
+    )
+    assert r["before"] == TOK_A + "x"  # newest overall when nothing is known to be live
     assert r["dropped"] == 1 and r["t3"] is None  # stale and not live: dropped
-    assert r["t4"] == TOK_A + "x"                 # just stored: protected from a racing poll
+    assert r["t4"] == TOK_A + "x"  # just stored: protected from a racing poll
     assert r["t2"] == TOK_B
-    assert r["proof"] == TOK_B                    # live trip preferred over the newer unconfirmed one
+    assert r["proof"] == TOK_B  # live trip preferred over the newer unconfirmed one
 
 
 def test_identity_can_manage(page):
-    r = ev(page, """
+    r = ev(
+        page,
+        """
       m.rememberManage(7, arg.a);
       return [m.canManage('o1', 7, {me: null, isAdmin: false}), m.canManage('o1', 8, {me: null, isAdmin: false}),
               m.canManage('o1', 8, {me: 'o1', isAdmin: false}), m.canManage('o1', 8, {me: 'o2', isAdmin: false}),
               m.canManage('o1', 8, {me: null, isAdmin: true}), m.canManage('o1', 8)];
-    """, {"a": TOK_A})
+    """,
+        {"a": TOK_A},
+    )
     assert r == [True, False, True, False, True, False]
 
 
 def test_identity_seed_from_fragment(page):
-    r = ev(page, """
+    r = ev(
+        page,
+        """
       const out = {};
       history.replaceState(null, '', '/?x=1#manage=7.' + arg.a);
       out.ok = m.seedFromFragment(); out.url = location.pathname + location.search + location.hash; out.tok = m.manageToken(7);
@@ -810,7 +855,9 @@ def test_identity_seed_from_fragment(page):
       history.replaceState(null, '', '/#other');
       out.none = m.seedFromFragment(); out.otherUrl = location.hash;
       return out;
-    """, {"a": TOK_A, "b": TOK_B})
+    """,
+        {"a": TOK_A, "b": TOK_B},
+    )
     assert r["ok"] == {"tripId": "7"} and r["url"] == "/?x=1" and r["tok"] == TOK_A
     assert r["badId"] is None and r["badIdUrl"] == "/"
     assert r["badTok"] is None and r["t8"] is None
@@ -829,10 +876,14 @@ def test_identity_works_when_storage_throws(browser, server):
         p = ctx.new_page()
         p.goto(server.url + "/")
         p.wait_for_selector("html[data-ready='1']")
-        r = ev(p, """
+        r = ev(
+            p,
+            """
           m.saveIdentity('m_q', 'Q'); m.rememberManage(3, arg.a);
           return {i: m.identity(), t: m.manageToken(3), proof: m.proofToken()};
-        """, {"a": TOK_A})
+        """,
+            {"a": TOK_A},
+        )
         assert r == {"i": {"uid": "m_q", "name": "Q"}, "t": TOK_A, "proof": TOK_A}
     finally:
         ctx.close()

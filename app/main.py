@@ -94,7 +94,7 @@ app.include_router(preview.router)
 
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; "
+    "img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self'; "
     "frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://discord.com"
 )
 

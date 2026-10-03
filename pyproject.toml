@@ -17,7 +17,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Pytest fixtures are imported and then used as parameters (F811); test SQL and
 # long literals are not a concern.
-"tests/**" = ["S101", "S105", "S106", "S311", "E402", "F811", "S608", "E731", "E501"]
+"tests/**" = ["S101", "S105", "S106", "S311", "E402", "F811", "S608", "E731", "E501", "S112", "S603", "S607", "S324"]
 "tools/**" = ["S101"]
 "scripts/**" = ["S310"]  # fixed https URL from config
 "run.py" = ["S104"]
@@ -40,7 +40,10 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# Browser tests are opt-in: Playwright's sync API leaves an event loop running in the
+# process, which breaks the unit tests that call asyncio.run(). Run them separately:
+#   pytest              -> unit tests      pytest -m e2e -> browser tests
+addopts = "-q -m 'not e2e'"
 markers = [
     "e2e: browser tests (Playwright + chromium); run with `pytest -m e2e`",
     "live: hit real upstream APIs to refresh fixtures; opt-in only, never in CI",

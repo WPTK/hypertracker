@@ -353,7 +353,11 @@ def test_security_headers_present(client):
     r = client.get("/")
     csp = r.headers["content-security-policy"]
     assert "default-src 'self'" in csp and "script-src 'self'" in csp
-    assert "https://*.tile.openstreetmap.org" in csp and "frame-ancestors 'none'" in csp
+    assert (
+        " https://tile.openstreetmap.org " in csp
+        and "https://*.tile.openstreetmap.org" in csp
+        and "frame-ancestors 'none'" in csp
+    )
     assert "form-action 'self' https://discord.com" in csp
     assert r.headers["referrer-policy"] and r.headers["permissions-policy"]
     assert client.get("/api/trips").headers["content-security-policy"] == csp

@@ -2,6 +2,7 @@
 
 Run: pytest tests/e2e/shell -q
 Screenshots land in tests/e2e/shell/screenshots/."""
+
 from __future__ import annotations
 
 import subprocess
@@ -26,12 +27,15 @@ def load(page, url, people=5):
 
 # ---------- basics ----------
 
+
 @pytest.mark.parametrize("theme", ["dark", "light"])
 @pytest.mark.parametrize("size", [(390, 844), (1280, 900)], ids=["390", "1280"])
 def test_renders_clean_and_screenshots(make_page, base_url, theme, size):
     page, errors = make_page(width=size[0], height=size[1], theme=theme, mobile=size[0] < 500)
     load(page, base_url + "/")
-    assert page.evaluate("document.documentElement.getAttribute('data-theme')") == ("light" if theme == "light" else None)
+    assert page.evaluate("document.documentElement.getAttribute('data-theme')") == (
+        "light" if theme == "light" else None
+    )
     assert page.locator("h1").count() == 1
     assert page.locator("main").count() == 1
     # no horizontal scroll
@@ -65,7 +69,10 @@ def test_content_of_legs(make_page, base_url):
     dana = page.locator(".person", has_text="Dana")
     assert dana.get_by_role("link", name="FlightAware").count() == 0
     assert "Entered by hand" in dana.inner_text()
-    assert "Today" in page.locator(".leg__day").first.inner_text() or "Yesterday" in page.locator(".leg__day").first.inner_text()
+    assert (
+        "Today" in page.locator(".leg__day").first.inner_text()
+        or "Yesterday" in page.locator(".leg__day").first.inner_text()
+    )
     assert errors == []
 
 
@@ -93,6 +100,7 @@ def test_touch_targets_44px(make_page, base_url):
 
 
 # ---------- keyboard, filter, focus ----------
+
 
 def test_keyboard_filter(make_page, base_url):
     page, errors = make_page()
@@ -148,17 +156,21 @@ def test_focus_preserved_and_filter_auto_clears(make_page, base_url, harness):
     # now filter on a code that disappears
     page.locator('button.tok[data-tok="DEN"]').first.click()
     assert page.locator(".leg.is-hit").count() >= 1
-    page.locator(".tok", has_text="ATL").first.click()   # ATL only appears in the extra and connection legs
+    page.locator(".tok", has_text="ATL").first.click()  # ATL only appears in the extra and connection legs
     harness(mode="empty")
     page.clock.run_for(61000)
     page.wait_for_selector(".empty")
     assert page.locator(".leg.is-dim").count() == 0
-    assert "cleared the filter" in page.locator("#filterStatus").inner_text() or "Nothing on the board" in page.locator("#filterStatus").inner_text()
+    assert (
+        "cleared the filter" in page.locator("#filterStatus").inner_text()
+        or "Nothing on the board" in page.locator("#filterStatus").inner_text()
+    )
     assert page.get_by_role("button", name="Add a trip").count() == 2
     assert errors == []
 
 
 # ---------- polling ----------
+
 
 def test_304_keeps_dom_and_sends_etag(make_page, base_url, harness):
     page, _ = make_page(clock=True)
@@ -209,7 +221,7 @@ def test_polling_pauses_while_dialog_open(make_page, base_url, harness):
     page.wait_for_timeout(300)
     assert len(harness.log()) == n0
     page.get_by_role("button", name="Close stub").click()
-    page.clock.run_for(4000)   # the held-back poll checks again every 3s
+    page.clock.run_for(4000)  # the held-back poll checks again every 3s
     page.wait_for_timeout(500)
     assert len(harness.log()) > n0
 
@@ -238,6 +250,7 @@ def test_relative_text_updates_without_rerender(make_page, base_url):
 
 
 # ---------- view, theme ----------
+
 
 def test_map_view_and_theme_wiring(make_page, base_url):
     page, errors = make_page()
@@ -295,9 +308,10 @@ def test_manage_fragment_seeded(make_page, base_url):
 
 # ---------- accessibility ----------
 
+
 @pytest.mark.parametrize("theme", ["dark", "light"])
 def test_axe(make_page, base_url, axe_js, theme):
-    page, _ = make_page(theme=theme, bypass_csp=True)   # axe is injected inline
+    page, _ = make_page(theme=theme, bypass_csp=True)  # axe is injected inline
     load(page, base_url + "/")
     page.add_script_tag(content=axe_js)
     res = page.evaluate("""async () => (await axe.run(document, {runOnly: {type: 'tag',
@@ -315,5 +329,7 @@ def test_reduced_motion_has_no_transitions(make_page, base_url):
 
 
 def test_contrast_script_passes():
-    r = subprocess.run([sys.executable, str(ROOT / "tools" / "contrast_check.py")], capture_output=True, text=True)
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "contrast_check.py")], capture_output=True, text=True
+    )
     assert r.returncode == 0, r.stdout + r.stderr

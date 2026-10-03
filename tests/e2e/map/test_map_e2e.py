@@ -80,22 +80,6 @@ def _chromium_path():
     return cands[0] if cands else None
 
 
-@pytest.fixture(scope="module")
-def browser():
-    with sync_api.sync_playwright() as p:
-        exe = _chromium_path()
-        try:
-            b = (
-                p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
-                if exe
-                else p.chromium.launch(args=["--no-sandbox"])
-            )
-        except Exception as e:  # noqa: BLE001
-            pytest.skip(f"Chromium unavailable: {e}")
-        yield b
-        b.close()
-
-
 def _open(browser, base_url, *, size=(1100, 800), theme="dark", tiles="ok", block_leaflet=False):
     ctx = browser.new_context(viewport={"width": size[0], "height": size[1]})
     page = ctx.new_page()
