@@ -1,0 +1,38 @@
+# Tooling configuration only. This project is not packaged.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["data", "node_modules", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = [
+    "S104",  # binding 0.0.0.0 is a deployment choice, documented in deploy/
+    "B008",  # FastAPI Depends() / Query() in argument defaults is the idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S311", "E402"]
+"tools/**" = ["S101"]
+"scripts/**" = ["S310"]  # fixed https URL from config
+"run.py" = ["S104"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "tools"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "e2e: browser tests (Playwright + chromium); run with `pytest -m e2e`",
+    "live: hit real upstream APIs to refresh fixtures; opt-in only, never in CI",
+]
+filterwarnings = [
+    # Starlette's TestClient emits this on some httpx versions; not actionable here.
+    "ignore:The 'app' shortcut is now deprecated:DeprecationWarning",
+    "ignore::DeprecationWarning:starlette.*",
+]
