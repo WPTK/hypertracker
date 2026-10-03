@@ -1,5 +1,29 @@
 # Deploying
 
+## One-command deploy
+
+On the server, from the app directory (adjust `APP_DIR` if it is not `/opt/hyperfixed-flight-tracker`):
+
+```bash
+sudo APP_DIR=/opt/hyperfixed-flight-tracker SMOKE_FLIGHT=<a real flight number for the next few days> ./deploy/deploy.sh
+```
+
+It backs up the database first (a verified copy in `backups/`, taken before the new
+version migrates it), creates `.env` if needed, generates `SECRET_KEY` only when it is
+missing or a placeholder, sets `TRUSTED_PROXY=cloudflare` and `DEV_MODE=false`, leaves your
+`AERODATABOX_*` values alone, installs dependencies, loads airports, refuses a systemd unit
+with more than one worker, restarts the service and runs a smoke test. Secrets are never
+printed. Running it again is safe: the secret stays the same and a new backup is added.
+
+The smoke test fails (exit 1) if the flight lookup comes back as `quota` or
+`upstream_unavailable`, which means a bad key, the wrong `AERODATABOX_AUTH`
+(`rapidapi` or `apimarket`), an exhausted quota, or no network. A `not_found` result is only
+a warning: the key works but that flight does not exist on that day.
+
+Other switches: `SKIP_INSTALL=1`, `SKIP_AIRPORTS=1`, `AIRPORTS_FILE=<csv>`, `SKIP_SMOKE=1`,
+`SKIP_RESTART=1`, `BASE=<url>`, `UNIT_FILE=<path>`.
+
+
 Assumes the code is in `/opt/hyperfixed-flight-tracker` with a `.venv` and a `.env`. Adjust `User=` and paths in the unit files first.
 
 ## Install
