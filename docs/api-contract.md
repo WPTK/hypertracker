@@ -52,7 +52,7 @@ Response: `{"results": [{"index": 0, "status": Status, "message": str, "leg": Le
 Body: `{"name"?: str, "uid"?: str, "proof"?: str, "tz"?: str, "out": [Row], "ret": [Row], "accept_unverified"?: bool}`, `Row = {"flight_no"?: str, "date"?: str, "from"?: str, "to"?: str}`.
 A row with `flight_no` is a flight row (from/to are optional hints); a row without it needs both `from` and `to` (manual).
 - A row whose status is not `ok`/`manual_ok` makes the request fail with 400 unless `accept_unverified` is true AND the row status is one of `not_found`, `upstream_unavailable`, `quota` (stored with `unverified: true`; `invalid`, `out_of_window`, `airport_unknown`, `ambiguous` always fail).
-- Success: `{"ok": true, "trip_id": int}` plus, for anonymous creates, `manage_token` and `uid` (unchanged behaviour).
+- Success: `{"ok": true, "trip_id": int}` plus, for anonymous creates, `manage_token` and `uid`, and `identity_secret` only when this request created or claimed the identity (never re-sent). `proof` is the identity secret for the given `uid`; for identities created before secrets existed, a manage token of a trip that `uid` still owns is accepted once and the identity is claimed (the response then carries `identity_secret`). A missing or wrong `proof` yields a new `uid`.
 
 ### Errors (all 4xx/5xx JSON)
 `{"detail": "message"}` or `{"detail": {"message": str, "rows": [{"direction": "out"|"ret", "index": int, "status": Status, "message": str}]}}`.
@@ -95,7 +95,7 @@ app/static/
 ```
 `js/api.js` exports: `request(method, url, body?, {manageToken?, signal?}) -> Promise<{ok, status, data}>` (never throws on HTTP errors; throws only on network failure as `{ok:false,status:0,data:null,networkError:true}` returned, not thrown); `fetchTrips({etag, signal}) -> Promise<{notModified?:true, etag, data}>`. All URLs are relative (`api/trips`) because the page uses `<base href>`.
 
-`js/identity.js` exports: `identity()`, `saveIdentity(uid, name)`, `manageToken(tripId)`, `rememberManage(tripId, token)`, `forgetManage(tripId)`, `pruneManage(liveTripIds:Set)`, `canManage(ownerId, tripId, {me, isAdmin})`, `proofToken()`, `seedFromFragment()` (reads `#manage=<trip>.<token>`, validates `^\d+$`, stores, strips the fragment, returns {tripId}|null).
+`js/identity.js` exports: `identity()` (`{uid, name, secret}`), `saveIdentity(uid, name, secret?)`, `manageToken(tripId)`, `rememberManage(tripId, token)`, `forgetManage(tripId)`, `pruneManage(liveTripIds:Set)`, `canManage(ownerId, tripId, {me, isAdmin})`, `proofToken()` (identity secret, else best manage token), `seedFromFragment()` (reads `#manage=<trip>.<token>`, validates `^\d+$`, stores, strips the fragment, returns {tripId}|null).
 
 `js/map.js` exports: `createMap(containerEl, {onSelectCode(code)}) -> {update(trips, filter), setTheme('dark'|'light'), show(), hide(), destroy()}`. `filter` = `{tok: string|null, date: string|null}`. Handles missing Leaflet / tile failure with a visible message and never throws.
 

@@ -835,7 +835,7 @@ export function createTripForm({ user = null, getTrips = () => [], onSaved = () 
       const data = res.data || {};
       let token = null;
       if (data.manage_token && data.trip_id != null) {
-        saveIdentity(data.uid, name);
+        saveIdentity(data.uid, name, data.identity_secret);
         rememberManage(data.trip_id, data.manage_token);
         token = data.manage_token;
       }

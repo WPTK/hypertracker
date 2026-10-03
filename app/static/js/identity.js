@@ -53,15 +53,25 @@ try {
 /* ---------- identity ---------- */
 export function identity() {
   const v = parseJson(storeGet(ID_KEY), null);
-  if (!v || typeof v !== 'object') return { uid: null, name: '' };
+  if (!v || typeof v !== 'object') return { uid: null, name: '', secret: null };
+  const uid = typeof v.uid === 'string' && v.uid ? v.uid : null;
   return {
-    uid: typeof v.uid === 'string' && v.uid ? v.uid : null,
+    uid,
     name: typeof v.name === 'string' ? v.name : '',
+    /* old records have no secret */
+    secret: uid && typeof v.secret === 'string' && TOKEN_RE.test(v.secret) ? v.secret : null,
   };
 }
 
-export function saveIdentity(uid, name) {
-  storeSet(ID_KEY, JSON.stringify({ uid: uid || null, name: name || '' }));
+/* `secret` is the server-issued identity secret. Omit it to keep the one
+   already stored for the same uid (the server only sends it once). */
+export function saveIdentity(uid, name, secret) {
+  const prev = identity();
+  const keep = secret === undefined && uid && prev.uid === uid ? prev.secret : null;
+  const sec = typeof secret === 'string' && TOKEN_RE.test(secret) ? secret : keep;
+  const rec = { uid: uid || null, name: name || '' };
+  if (sec) rec.secret = sec;
+  storeSet(ID_KEY, JSON.stringify(rec));
 }
 
 /* ---------- manage tokens ---------- */
@@ -150,10 +160,14 @@ export function canManage(ownerId, tripId, ctx) {
   return !!isAdmin || (!!me && me === ownerId) || !!manageToken(tripId);
 }
 
-/* Proof of identity for reusing a uid: any manage token from a trip this
-   browser created. Prefer one whose trip is still live (it will keep working),
-   else the most recently stored. */
+/* Proof of identity for reusing a uid: the identity secret when this browser
+   has one (it outlives every trip). Otherwise fall back to a manage token from
+   a trip this browser created, which the server accepts once for an identity
+   that predates secrets: prefer one whose trip is still live, else the most
+   recently stored. */
 export function proofToken() {
+  const secret = identity().secret;
+  if (secret) return secret;
   const entries = loadManage();
   if (!entries.length) return null;
   const pool = lastLive ? entries.filter((e) => lastLive.has(e.tripId)) : [];

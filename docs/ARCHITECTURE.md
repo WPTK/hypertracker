@@ -66,7 +66,7 @@ POST /api/trips   (PUT /api/trips/{id} adds an authorization check)
             ├─ any row not ok/manual_ok and not acceptable ─> 400 { detail: { message, rows } }
             └─ else ─> BEGIN
                          insert/replace legs, compute ends_at (max over all legs)
-                       COMMIT   ─> 200 { ok, trip_id [, manage_token, uid] }
+                       COMMIT   ─> 200 { ok, trip_id [, manage_token, uid, identity_secret] }
 ```
 
 `accept_unverified` only rescues `not_found`, `upstream_unavailable`, `quota`.
@@ -96,7 +96,7 @@ SQLite, `PRAGMA user_version` migrations.
 | `flight_cache` | Upstream flight responses keyed by flight and date, with expiry |
 | `aircraft_cache` | Upstream aircraft records keyed by registration, with expiry |
 | `users` | Discord users seen at login |
-| `identities` | PLANNED (Phase 4): `id`, `secret_hash`; replaces proof via trip tokens |
+| `identities` | Anonymous posters: `id` (`m_...`), `secret_hash` (sha256), `created_at`, `last_seen`. Proof for reusing a uid; survives trip purges. Housekeeping deletes rows with no trips and `last_seen` older than 90 days |
 
 Live state is not stored: it is an in-memory map owned by `airplaneslive`.
 

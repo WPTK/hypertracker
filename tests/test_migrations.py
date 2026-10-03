@@ -100,7 +100,7 @@ def test_v0_with_null_ends_at_is_backfilled(dbfile, old_columns):
     ids = make_v0(dbfile, with_old_columns=old_columns)
     assert rows(dbfile, "PRAGMA user_version")[0][0] == 0
     db.init_db()
-    assert rows(dbfile, "PRAGMA user_version")[0][0] == db.SCHEMA_VERSION == 2
+    assert rows(dbfile, "PRAGMA user_version")[0][0] == db.SCHEMA_VERSION == 3
 
     ends = {r["id"]: r["ends_at"] for r in rows(dbfile, "SELECT id, ends_at FROM trips")}
     assert all(v is not None for v in ends.values())
@@ -148,14 +148,33 @@ def test_migration_is_idempotent(dbfile):
     db.init_db()
     db.init_db()
     assert [tuple(r) for r in rows(dbfile, "SELECT * FROM trips ORDER BY id")] == before
+    assert rows(dbfile, "PRAGMA user_version")[0][0] == 3
+
+
+def test_v2_database_gains_identities_table(dbfile, monkeypatch):
+    make_v0(dbfile)
+    with monkeypatch.context() as m:
+        m.setattr(db, "MIGRATIONS", db.MIGRATIONS[:2])  # build a genuine v2 database
+        db.init_db()
     assert rows(dbfile, "PRAGMA user_version")[0][0] == 2
+    assert not rows(dbfile, "SELECT name FROM sqlite_master WHERE name = 'identities'")
+    before = [tuple(r) for r in rows(dbfile, "SELECT * FROM trips ORDER BY id")]
+    db.init_db()
+    db.init_db()  # idempotent
+    assert rows(dbfile, "PRAGMA user_version")[0][0] == 3
+    cols = {r["name"]: r for r in rows(dbfile, "PRAGMA table_info(identities)")}
+    assert set(cols) == {"id", "secret_hash", "created_at", "last_seen"}
+    assert cols["id"]["pk"] == 1 and all(
+        cols[c]["notnull"] for c in ("secret_hash", "created_at", "last_seen")
+    )
+    assert [tuple(r) for r in rows(dbfile, "SELECT * FROM trips ORDER BY id")] == before
 
 
 def test_fresh_database_reaches_latest_version(dbfile):
     db.init_db()
     assert rows(dbfile, "PRAGMA user_version")[0][0] == db.SCHEMA_VERSION
     names = {r["name"] for r in rows(dbfile, "SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"users", "trips", "legs", "flight_cache", "aircraft_cache", "airports"} <= names
+    assert {"users", "trips", "legs", "flight_cache", "aircraft_cache", "airports", "identities"} <= names
 
 
 def test_failed_migration_rolls_back(dbfile, monkeypatch):

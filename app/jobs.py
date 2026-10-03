@@ -12,6 +12,7 @@ from . import config, db, lifecycle
 log = logging.getLogger("hypertracker.jobs")
 
 ORPHAN_USER_DAYS = 30
+STALE_IDENTITY_DAYS = 90
 HOUSEKEEPING_INTERVAL = 3600
 CALLSIGN_REFRESH_INTERVAL = 60
 REFRESH_WINDOW_HOURS = 48
@@ -45,10 +46,20 @@ def prune_orphan_users() -> int:
         ).rowcount
 
 
+def prune_stale_identities() -> int:
+    """Anonymous identities that own no trips and have not been used for 90 days."""
+    cutoff = lifecycle.now() - STALE_IDENTITY_DAYS * 86400
+    with db.get_conn() as conn:
+        return conn.execute(
+            "DELETE FROM identities WHERE last_seen < ? AND id NOT IN (SELECT owner_id FROM trips)",
+            (cutoff,),
+        ).rowcount
+
+
 def housekeeping_once() -> dict:
     """One pass of all housekeeping. Each step is isolated: a failure in one is
     logged and the others still run."""
-    counts: dict = {"trips": 0, "flight_cache": 0, "aircraft_cache": 0, "users": 0}
+    counts: dict = {"trips": 0, "flight_cache": 0, "aircraft_cache": 0, "users": 0, "identities": 0}
     try:
         counts["trips"] = lifecycle.purge_old_trips()
     except Exception:
@@ -61,12 +72,18 @@ def housekeeping_once() -> dict:
         counts["users"] = prune_orphan_users()
     except Exception:
         log.exception("housekeeping: pruning orphan users failed")
+    try:
+        counts["identities"] = prune_stale_identities()
+    except Exception:
+        log.exception("housekeeping: pruning stale identities failed")
     log.info(
-        "housekeeping: purged %d trips, %d flight_cache + %d aircraft_cache rows, %d orphan users",
+        "housekeeping: purged %d trips, %d flight_cache + %d aircraft_cache rows, %d orphan users, "
+        "%d stale identities",
         counts["trips"],
         counts["flight_cache"],
         counts["aircraft_cache"],
         counts["users"],
+        counts["identities"],
     )
     return counts
 

@@ -166,7 +166,20 @@ def _m2_lifecycle(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_airports_iata ON airports(iata)")
 
 
-MIGRATIONS = [(1, _m1_base_schema), (2, _m2_lifecycle)]
+def _m3_identities(conn):
+    """v3: anonymous identities. `secret_hash` is sha256 of a secret only the
+    browser holds; it outlives any single trip (and its manage token)."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS identities ("
+        " id          TEXT PRIMARY KEY,"
+        " secret_hash TEXT NOT NULL,"
+        " created_at  INTEGER NOT NULL,"
+        " last_seen   INTEGER NOT NULL)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_identities_seen ON identities(last_seen)")
+
+
+MIGRATIONS = [(1, _m1_base_schema), (2, _m2_lifecycle), (3, _m3_identities)]
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 
 
