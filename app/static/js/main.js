@@ -357,8 +357,7 @@ function emptyState() {
 function personCard(p, accent) {
   const card = h("article", { class: "person wptk-section", "data-accent": accent, "aria-labelledby": `p-${cssId(p.id)}` });
   const head = h("div", { class: "person__head" },
-    h("h3", { class: "person__name", id: `p-${cssId(p.id)}`, text: p.name }),
-    p.airborne ? h("span", { class: "status status--airborne", text: "In the air" }) : null);
+    h("h3", { class: "person__name", id: `p-${cssId(p.id)}`, text: p.name }));
   card.append(head);
   for (const trip of p.trips) {
     const tripEl = h("div", { class: "trip" });
