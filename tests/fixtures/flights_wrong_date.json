@@ -1,0 +1,47 @@
+[
+  {
+    "number": "DL 1200",
+    "departure": {
+      "airport": {
+        "icao": "KATL",
+        "iata": "ATL",
+        "name": "Atlanta Hartsfield-Jackson",
+        "location": {
+          "lat": 33.6367,
+          "lon": -84.4281
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-11 12:15Z",
+        "local": "2026-10-11 08:15-04:00"
+      }
+    },
+    "arrival": {
+      "airport": {
+        "icao": "KDEN",
+        "iata": "DEN",
+        "name": "Denver Intl",
+        "location": {
+          "lat": 39.8617,
+          "lon": -104.6731
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-11 15:05Z",
+        "local": "2026-10-11 09:05-06:00"
+      }
+    },
+    "status": "Expected",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "airline": {
+      "name": "Delta Air Lines",
+      "iata": "DL",
+      "icao": "DAL"
+    },
+    "aircraft": {
+      "reg": "N123DN",
+      "model": "Boeing 737-900"
+    }
+  }
+]

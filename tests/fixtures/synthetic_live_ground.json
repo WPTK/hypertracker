@@ -1,0 +1,57 @@
+{
+  "ac": [
+    {
+      "hex": "ae4f14",
+      "type": "adsb_icao",
+      "flight": "UAL123  ",
+      "r": "10-0220",
+      "t": "C17",
+      "dbFlags": 1,
+      "desc": "Boeing C-17A Globemaster III",
+      "ownOp": "United States Air Force",
+      "alt_baro": "ground",
+      "gs": 12.3,
+      "track": 58.51,
+      "geom_rate": -64,
+      "squawk": "3506",
+      "emergency": "none",
+      "category": "A5",
+      "nav_qnh": 1013.6,
+      "nav_altitude_mcp": 31008,
+      "nav_heading": 350.86,
+      "nav_modes": [
+        "althold",
+        "tcas"
+      ],
+      "lat": 40.64,
+      "lon": -73.78,
+      "nic": 10,
+      "rc": 25,
+      "seen_pos": 0.321,
+      "recentReceiverIds": [
+        "892c9171-8682-486b",
+        "840b0976-a658-42e1"
+      ],
+      "version": 2,
+      "nic_baro": 1,
+      "nac_p": 10,
+      "nac_v": 2,
+      "sil": 3,
+      "sil_type": "perhour",
+      "gva": 2,
+      "sda": 2,
+      "alert": 0,
+      "spi": 0,
+      "mlat": [],
+      "tisb": [],
+      "messages": 22546,
+      "seen": 0.3,
+      "rssi": -16.7
+    }
+  ],
+  "msg": "No error",
+  "now": 1733386938001,
+  "total": 1,
+  "ctime": 1733386938001,
+  "ptime": 0
+}
