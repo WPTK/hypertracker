@@ -385,9 +385,12 @@ def test_etag_304(client):
     make_trip(client)
     r = client.get("/api/trips")
     etag = r.headers["etag"]
-    assert etag and r.headers["cache-control"] == "private, no-cache"
+    assert etag and r.headers["cache-control"] == "private, no-store"
     r2 = client.get("/api/trips", headers={"If-None-Match": etag})
     assert r2.status_code == 304 and r2.content == b"" and r2.headers["etag"] == etag
+    # The clock rides on headers so a 304 still refreshes it (regression: stale server_time).
+    assert int(r.headers["x-server-time"]) == r.json()["server_time"]
+    assert int(r2.headers["x-server-time"]) > 0 and int(r2.headers["x-live-updated-at"]) > 0
     assert client.get("/api/trips", headers={"If-None-Match": f'W/{etag}, "zzz"'}).status_code == 304
     make_trip(client, name="Second")
     r3 = client.get("/api/trips", headers={"If-None-Match": etag})

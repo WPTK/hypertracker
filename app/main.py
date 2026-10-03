@@ -327,12 +327,23 @@ def get_trips(request: Request):
         ]
         + '"'
     )
-    headers = {"ETag": etag, "Cache-Control": "private, no-cache", "Vary": "Cookie"}
+    server_time = lifecycle.now()
+    live_updated_at = _live_updated_at(server_time)
+    # no-store: the page manages the ETag itself. With no-cache the browser also kept the
+    # last 200 and, on a page load, swapped it in for a 304, so the board got an hours-old
+    # server_time and computed its clock offset from it. The clock goes out as headers too,
+    # so a 304 refreshes it.
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "private, no-store",
+        "Vary": "Cookie",
+        "X-Server-Time": str(server_time),
+        "X-Live-Updated-At": str(live_updated_at),
+    }
     if _etag_matches(request.headers.get("if-none-match"), etag):
         return Response(status_code=304, headers=headers)
-    server_time = lifecycle.now()
     body["server_time"] = server_time
-    body["live_updated_at"] = _live_updated_at(server_time)
+    body["live_updated_at"] = live_updated_at
     return JSONResponse(body, headers=headers)
 
 

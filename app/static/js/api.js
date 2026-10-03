@@ -50,7 +50,13 @@ export async function fetchTrips({ etag, signal } = {}) {
     e.aborted = !!(err && err.name === "AbortError");
     throw e;
   }
-  if (res.status === 304) return { notModified: true, etag: res.headers.get("ETag") || etag || null };
+  // The server clock rides on the headers so a 304 refreshes it too.
+  const num = (name) => {
+    const v = Number(res.headers.get(name));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  const clock = { serverTime: num("X-Server-Time"), liveUpdatedAt: num("X-Live-Updated-At") };
+  if (res.status === 304) return { notModified: true, etag: res.headers.get("ETag") || etag || null, ...clock };
   if (!res.ok) {
     const e = new Error("http " + res.status);
     e.status = res.status;
@@ -69,5 +75,5 @@ export async function fetchTrips({ etag, signal } = {}) {
     e.status = res.status;
     throw e;
   }
-  return { etag: res.headers.get("ETag") || null, data };
+  return { etag: res.headers.get("ETag") || null, data, ...clock };
 }

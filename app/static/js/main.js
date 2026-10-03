@@ -98,6 +98,7 @@ const state = {
   data: null,        // last good /api/trips payload
   etag: null,
   skew: 0,           // server clock minus client clock, ms
+  liveUpdatedAt: null, // epoch seconds of the last live-status poll
   lastOk: 0,
   filter: { tok: null, date: null },
   view: "board",
@@ -199,10 +200,13 @@ function onSuccess(res) {
   fails = 0;
   state.lastOk = Date.now();
   if (stale) { stale = false; showStale(false); announce("The board is up to date again."); }
+  const serverTime = res.serverTime != null ? res.serverTime : (!res.notModified ? res.data.server_time : null);
+  if (typeof serverTime === "number") state.skew = serverTime * 1000 - Date.now();
+  if (res.liveUpdatedAt != null) state.liveUpdatedAt = res.liveUpdatedAt;
   if (!res.notModified) {
     state.data = res.data;
     state.etag = res.etag;
-    if (typeof res.data.server_time === "number") state.skew = res.data.server_time * 1000 - Date.now();
+    if (state.liveUpdatedAt == null) state.liveUpdatedAt = res.data.live_updated_at;
     if (identity && identity.pruneManage) {
       try { identity.pruneManage(new Set(res.data.trips.map((t) => t.id))); } catch (_) { /* ignore */ }
     }
@@ -238,7 +242,7 @@ function renderStamp() {
   if (!el || !state.lastOk) return;
   const fmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   let text = `Updated ${fmt(state.lastOk)}.`;
-  const live = state.data && state.data.live_updated_at;
+  const live = state.liveUpdatedAt;
   if (live) text += ` Live status as of ${fmt(live * 1000)}.`;
   el.textContent = text;
 }
