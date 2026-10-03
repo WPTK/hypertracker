@@ -1,0 +1,29 @@
+# /etc/systemd/system/hyperfixed-airports.service
+# One-shot airport refresh, started weekly by hyperfixed-airports.timer.
+# A bad or truncated download exits non-zero (1 = download failed, 2 = too few
+# rows) and leaves the existing airports table untouched.
+[Unit]
+Description=Hyperfixed Flight Tracker - refresh airports table
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bill
+WorkingDirectory=/opt/hyperfixed-flight-tracker
+EnvironmentFile=/opt/hyperfixed-flight-tracker/.env
+ExecStart=/opt/hyperfixed-flight-tracker/.venv/bin/python -m scripts.update_airports
+TimeoutStartSec=300
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hyperfixed-flight-tracker/data
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=read-only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+UMask=0077

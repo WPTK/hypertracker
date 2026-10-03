@@ -1,7 +1,36 @@
 # Hyperfixed Flight Tracker — nginx examples
-# The app runs on 127.0.0.1:8000 (uvicorn). Pick ONE of the two patterns below.
-# If you front everything with a Cloudflare Tunnel, you can equally point a tunnel
-# ingress rule at http://127.0.0.1:8000 instead of using nginx.
+# The app runs on 127.0.0.1:8000 (uvicorn, ONE worker). Pick ONE of the two
+# patterns below. If you front everything with a Cloudflare Tunnel, you can
+# point a tunnel ingress rule at http://127.0.0.1:8000 instead of using nginx
+# (then set TRUSTED_PROXY=cloudflare).
+#
+# TLS: terminate TLS in nginx (certbot --nginx) or at Cloudflare. The server
+# blocks below listen on 80 for brevity; add `listen 443 ssl;` plus certificate
+# lines (or let certbot do it) and redirect 80 -> 443. Never expose port 8000.
+#
+# ---------------------------------------------------------------------------
+# REAL CLIENT IP  (the app's rate limits depend on this being right)
+# ---------------------------------------------------------------------------
+# Set TRUSTED_PROXY in the app's .env to match how requests reach it:
+#
+#   TRUSTED_PROXY=nginx       nginx talks directly to clients. nginx OVERWRITES
+#                             X-Forwarded-For with $remote_addr (below), so a
+#                             client-supplied value can never reach the app.
+#                             The app trusts the last X-Forwarded-For hop only
+#                             from the loopback peer.
+#   TRUSTED_PROXY=cloudflare  Traffic is Cloudflare -> (tunnel or nginx) -> app.
+#                             The app trusts CF-Connecting-IP. If nginx sits in
+#                             between, it must pass that header through ONLY
+#                             for Cloudflare source ranges (see the realip
+#                             block in Pattern A) and otherwise blank it.
+#   TRUSTED_PROXY=none        (default) use the TCP peer; correct for dev only.
+#
+# Never use $proxy_add_x_forwarded_for here: it appends to whatever the client
+# sent, which lets anyone pick their own "IP" and dodge the rate limit.
+
+# Per-IP request limit for the API. Goes in the http {} context (e.g. conf.d).
+limit_req_zone $binary_remote_addr zone=hf_api:10m rate=5r/s;
+limit_req_status 429;
 
 # ===========================================================================
 # PATTERN A — dedicated hostname (simplest). Serve at the root of board.adsb.cc
@@ -11,14 +40,46 @@ server {
     listen 80;
     server_name board.adsb.cc;
 
+    # Only 16k of request body: trips are tiny JSON documents.
+    client_max_body_size 16k;
+
+    # Behind Cloudflare (TRUSTED_PROXY=cloudflare) uncomment and keep the list
+    # of Cloudflare ranges current (https://www.cloudflare.com/ips/), so
+    # $remote_addr becomes the visitor and spoofed headers are ignored:
+    #   set_real_ip_from 173.245.48.0/20;   # ...and the other CF ranges
+    #   real_ip_header   CF-Connecting-IP;
+
+    location /api/ {
+        limit_req zone=hf_api burst=20 nodelay;
+        proxy_pass         http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $remote_addr;   # overwrite, never append
+        proxy_set_header   CF-Connecting-IP  $remote_addr;   # overwrite: never trust a client copy
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    60s;   # trip saves resolve flights upstream (up to ~20s)
+        proxy_send_timeout    30s;
+        # Security headers (CSP, Referrer-Policy, ...) come from the app and are
+        # passed through untouched. Do not add_header duplicates here.
+    }
+
     location / {
         proxy_pass         http://127.0.0.1:8000;
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-For   $remote_addr;
+        proxy_set_header   CF-Connecting-IP  $remote_addr;
         proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout    60s;
+        proxy_send_timeout    30s;
     }
+
+    # Optional once TLS is on:
+    #   add_header Strict-Transport-Security "max-age=31536000" always;
 }
 
 # ===========================================================================
@@ -35,12 +96,28 @@ server {
 #
 #     location = /board { return 301 /board/; }
 #
+#     location /board/api/ {
+#         limit_req zone=hf_api burst=20 nodelay;
+#         client_max_body_size 16k;
+#         proxy_pass         http://127.0.0.1:8000/api/;
+#         proxy_http_version 1.1;
+#         proxy_set_header   Host              $host;
+#         proxy_set_header   X-Real-IP         $remote_addr;
+#         proxy_set_header   X-Forwarded-For   $remote_addr;
+#         proxy_set_header   CF-Connecting-IP  $remote_addr;
+#         proxy_set_header   X-Forwarded-Proto $scheme;
+#         proxy_read_timeout 60s;
+#     }
+#
 #     location /board/ {
+#         client_max_body_size 16k;
 #         proxy_pass         http://127.0.0.1:8000/;   # trailing slash strips /board
 #         proxy_http_version 1.1;
 #         proxy_set_header   Host              $host;
 #         proxy_set_header   X-Real-IP         $remote_addr;
-#         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header   X-Forwarded-For   $remote_addr;
+#         proxy_set_header   CF-Connecting-IP  $remote_addr;
 #         proxy_set_header   X-Forwarded-Proto $scheme;
+#         proxy_read_timeout 60s;
 #     }
 # }

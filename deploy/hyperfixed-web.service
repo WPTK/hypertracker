@@ -1,6 +1,14 @@
 # /etc/systemd/system/hyperfixed-web.service
-# Adjust User, WorkingDirectory, and the venv path to match your install on gilead.
+# Adjust User, WorkingDirectory, and the venv path to match your install.
 # If hosting under /board, append:  --root-path /board   (and set ROOT_PATH=/board in .env)
+#
+# ONE WORKER ONLY. Rate limits, the live-status cache and the background pollers
+# live in process memory. Do NOT add --workers N (or run several copies behind
+# a balancer): limits would multiply by N and each worker would poll upstream.
+#
+# --proxy-headers is deliberately NOT passed. The app reads the client IP itself
+# (TRUSTED_PROXY=nginx|cloudflare in .env); uvicorn's own forwarded-header
+# handling would be a second, unaudited trust decision.
 [Unit]
 Description=Hyperfixed Flight Tracker (web)
 After=network-online.target
@@ -13,6 +21,27 @@ EnvironmentFile=/opt/hyperfixed-flight-tracker/.env
 ExecStart=/opt/hyperfixed-flight-tracker/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=3
+
+# --- Hardening ---
+NoNewPrivileges=true
+ProtectSystem=strict
+# The SQLite database (and its -wal/-shm files) live here; nothing else is writable.
+ReadWritePaths=/opt/hyperfixed-flight-tracker/data
+PrivateTmp=true
+PrivateDevices=true
+# read-only (not true) so a checkout under /home still works; use "true" if installed in /opt.
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+# MemoryDenyWriteExecute is intentionally not set (not required; can break some wheels).
 
 [Install]
 WantedBy=multi-user.target
