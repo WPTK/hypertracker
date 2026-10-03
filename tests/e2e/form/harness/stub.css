@@ -1,0 +1,35 @@
+/* Stand-ins for the shell's tokens and wptk-ext.css classes, so the form can be
+   judged in isolation. Not shipped. */
+:root {
+  color-scheme: dark;
+  --accent-0: #7aa2ff; --accent-1: #c78bff; --accent-2: #3fd0b8;
+  --text-0: #eef1f8; --text-1: #a9b2c6; --line: rgb(255 255 255 / 0.22);
+  --surface: #151a28; --surface-solid: #151a28; --bg: #0b0f1a;
+  --radius: 12px; --space-1: .5rem; --space-2: .75rem; --space-3: 1rem; --status-danger: #ff8a80;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --accent-0: #2b4fd1; --accent-1: #8a3fd0; --accent-2: #0b7d6c;
+  --text-0: #10131c; --text-1: #4a5266; --line: rgb(0 0 0 / 0.28);
+  --surface: #ffffff; --surface-solid: #ffffff; --bg: #eef1f8; --status-danger: #b3261e;
+}
+body { margin: 0; padding: 1rem; background: var(--bg); color: var(--text-0); font: 16px/1.4 system-ui, sans-serif; }
+.btn { font: inherit; color: var(--text-0); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: .45rem 1rem; cursor: pointer; }
+.btn--sm { padding: .3rem .8rem; font-size: .9rem; }
+.btn--primary { background: var(--accent-0); color: #08101f; border-color: transparent; font-weight: 600; }
+.btn--ghost { border-color: transparent; }
+.btn--danger { background: #c62828; color: #fff; border-color: transparent; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.btn:focus-visible, .input:focus-visible { outline: 2px solid var(--accent-0); outline-offset: 2px; }
+.input { font: inherit; color: var(--text-0); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: .4rem .6rem; }
+.input[aria-invalid="true"] { border-color: var(--status-danger); }
+.field { display: grid; gap: .25rem; }
+.field__label { font-size: .85rem; color: var(--text-1); }
+.field__hint { font-size: .85rem; color: var(--text-1); }
+.field__error { font-size: .9rem; color: var(--status-danger); }
+.status { display: inline-block; font-size: .78rem; padding: .1rem .55rem; border-radius: 999px; border: 1px solid currentColor; }
+.status--scheduled { color: var(--accent-2); }
+.dialog { background: var(--surface); color: var(--text-0); border: 1px solid var(--line); border-radius: var(--radius); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+ul.trips { list-style: none; padding: 0; display: grid; gap: .5rem; }
+ul.trips li { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
