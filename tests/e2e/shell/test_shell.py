@@ -190,7 +190,7 @@ def test_failed_poll_keeps_board_and_shows_banner(make_page, base_url, harness):
     page.clock.run_for(61000)
     page.wait_for_selector("#staleBanner:not([hidden])")
     assert page.locator(".person").count() == 5
-    assert "couldn't refresh" in page.locator("#staleText").inner_text()
+    assert "Could not refresh the board" in page.locator("#staleText").inner_text()
     harness(fail=False)
     page.get_by_role("button", name="Try again now").click()
     page.wait_for_selector("#staleBanner", state="hidden")
@@ -203,7 +203,7 @@ def test_first_load_failure_has_retry(make_page, base_url, harness):
     harness(fail=True)
     page, errors = make_page(clock=True)
     page.goto(base_url + "/")
-    page.wait_for_selector("text=I couldn't load the board")
+    page.wait_for_selector("text=Could not load the board")
     assert page.locator(".person").count() == 0
     harness(fail=False)
     page.get_by_role("button", name="Try again").click()

@@ -51,7 +51,10 @@ jobs:
       - run: pip install -r requirements-e2e.txt
       - name: Install chromium
         run: playwright install --with-deps chromium
-      - run: pytest -m e2e
+      - name: Browser tests
+        run: pytest -m e2e -rs
+        env:
+          E2E_FAIL_ON_SKIP: "1"   # a skipped browser test must never look like a pass
       - name: Contrast check
         run: |
           if [ -f tools/contrast_check.py ]; then

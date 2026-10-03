@@ -230,7 +230,7 @@ def test_duplicate_rows_are_saved_once(page, api):
     type_flight(row(page), "DL1200")
     page.click(".tf-add[data-dir=out]")
     type_flight(row(page, 1), "dl 1200")
-    expect(row(page, 1).locator(".tf-dup")).to_have_text("Same as leg 1. I will only save it once.")
+    expect(row(page, 1).locator(".tf-dup")).to_have_text("Same as leg 1. It will only be saved once.")
     save(page)
     expect(page.locator(".tf-saved")).to_be_visible()
     assert len(stats(api)["last_post"]["out"]) == 1
