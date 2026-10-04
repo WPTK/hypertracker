@@ -1,0 +1,55 @@
+# Tooling configuration only. This project is not packaged.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["data", "node_modules", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = [
+    "S104",  # binding 0.0.0.0 is a deployment choice, documented in deploy/
+    "B008",  # FastAPI Depends() / Query() in argument defaults is the idiom
+    "E741",  # `l` / `a` / `b` as short loop names is fine in small scopes
+    "E501",  # line length is the formatter's job; it leaves long strings alone
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Pytest fixtures are imported and then used as parameters (F811); test SQL and
+# long literals are not a concern.
+"tests/**" = ["S101", "S105", "S106", "S311", "E402", "F811", "S608", "E731", "E501", "S112", "S603", "S607", "S324"]
+"tools/**" = ["S101"]
+"scripts/**" = ["S310"]  # fixed https URL from config
+"run.py" = ["S104"]
+# S608: audited. Table/column names are constants, whitelisted (db._CACHE_TABLES,
+# jobs._REFRESH_COLS) or "?" placeholder lists; every value goes through bindings.
+"app/db.py" = ["S608"]
+"app/lifecycle.py" = ["S608"]
+"app/jobs.py" = ["S608"]
+"app/main.py" = ["S608"]
+# S105: these are URLs / the placeholder the fail-fast check compares against.
+"app/auth.py" = ["S105"]
+"app/config.py" = ["S105", "S110"]  # S110: python-dotenv is optional
+"app/aerodatabox.py" = ["S311"]  # retry jitter, not cryptographic
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "scripts", "tools"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Browser tests are opt-in: Playwright's sync API leaves an event loop running in the
+# process, which breaks the unit tests that call asyncio.run(). Run them separately:
+#   pytest              -> unit tests      pytest -m e2e -> browser tests
+addopts = "-q -m 'not e2e'"
+markers = [
+    "e2e: browser tests (Playwright + chromium); run with `pytest -m e2e`",
+    "live: hit real upstream APIs to refresh fixtures; opt-in only, never in CI",
+]
+filterwarnings = [
+    # Starlette's TestClient emits this on some httpx versions; not actionable here.
+    "ignore:The 'app' shortcut is now deprecated:DeprecationWarning",
+    "ignore::DeprecationWarning:starlette.*",
+]

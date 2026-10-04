@@ -2,119 +2,109 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <base href="{{ base_path }}/">
 <title>Hypertracker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500;700&family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="static/styles.css?v=20261003">
+<link rel="icon" href="data:,">
+<meta name="description" content="Who is flying where, and when they land.">
+<script src="static/js/theme-init.js"></script>
+<link rel="preload" href="static/wptk/fonts/Manrope-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="static/wptk/tokens.css">
+<link rel="stylesheet" href="static/wptk/wptk.css">
+<link rel="stylesheet" href="static/css/wptk-ext.css">
+<link rel="stylesheet" href="static/css/app.css">
+<link rel="stylesheet" href="static/css/map.css">
+<link rel="stylesheet" href="static/css/form.css">
 </head>
-<body>
-<header class="site-header">
-  <div class="header-inner">
-    <a href="." class="site-logo">Hypertracker</a>
-    <div class="header-right">
-      <span class="clock" id="zclock">--:--:-- Z</span>
-      {% if user %}
-        <span class="who-mini">@{{ user.name }}{% if is_admin %} <span class="admin-tag">admin</span>{% endif %}</span>
-        <a class="btn btn--sm" href="logout">Log out</a>
-      {% elif discord_enabled %}
-        <a class="btn btn--sm" href="login">Log in</a>
-      {% endif %}
-    </div>
-  </div>
+<body class="wptk">
+<a class="skip-link" href="#main">Skip to the board</a>
+
+<header class="wptk-nav">
+  <nav class="wptk-nav__inner" aria-label="Primary">
+    <a class="wptk-nav__back" href="/">WPTK</a>
+    <span class="wptk-nav__sep" aria-hidden="true">/</span>
+    <a class="wptk-nav__here" href="." aria-current="page">Hypertracker</a>
+    <span class="wptk-nav__spacer"></span>
+    <button type="button" class="wptk-theme-toggle" id="themeToggle">
+      <span class="wptk-theme-toggle__track" aria-hidden="true"><span class="wptk-theme-toggle__thumb"></span></span>
+      <span class="wptk-theme-toggle__text" id="themeLabel">Dark</span><span class="sr-only"> theme. Switch to light.</span>
+    </button>
+  </nav>
 </header>
 
-<main class="container">
-  {% if gated %}
-    <div class="gate">
-      <p>This board is members-only. Log in with Discord to view it.</p>
-      <a class="btn btn--accent" href="login">Log in with Discord</a>
-      <p class="gate-note" id="gateNote"></p>
+<main id="main" class="wptk-container" tabindex="-1">
+  <div class="page-head">
+    <div>
+      <h1>Hypertracker</h1>
     </div>
-  {% else %}
-    <div class="controls">
-      <div class="seg" role="group" aria-label="View">
-        <button id="bBoard" class="on">Board</button>
-        <button id="bMap">Map</button>
-      </div>
-      <div class="filterbar" id="filterbar"><span id="filterText"></span><span class="clear" id="clearBtn">clear</span></div>
-      <button class="btn btn--accent btn--sm addbtn" id="openAdd">+ Add flight</button>
-      <span class="hint">Tap any airport code or flight number</span>
-    </div>
-
-    <div id="board"><p class="empty" id="emptyMsg">Loading the board…</p></div>
-
-    <div class="mapcard" id="mapcard">
-      <div class="datechips" id="datechips"></div>
-      <div id="map"></div>
-      <div class="maplegend">
-        <span><span class="dot" style="background:var(--accent-warm)"></span>airborne now</span>
-        <span><span class="dot" style="background:var(--accent)"></span>selected</span>
-        <span><span class="dot" style="background:var(--accent-teal)"></span>scheduled</span>
-      </div>
-    </div>
-  {% endif %}
-</main>
-
-
-{% if not gated %}
-<div class="modal-bg" id="addModal" hidden>
-  <div class="modal">
-    <div class="modal-head"><h2 id="modalTitle">Add a trip</h2><button class="modal-x" id="closeAdd" aria-label="Close">&times;</button></div>
-    <div id="modalForm">
-      <p class="modal-sub" id="modalSub">Enter a flight number and the departure date — we resolve the airports, aircraft, and times automatically.</p>
-      {% if not user %}
-      <div class="who-field" id="whoField">
-        <label for="whoName">Your name</label>
-        <input id="whoName" maxlength="40" placeholder="Shown on the board, e.g. Alex" autocomplete="name">
-        <p class="who-note">No account needed. This browser will remember the trips you add so you can edit them later.</p>
-      </div>
+    <div class="account">
+      {% if user %}
+        <span class="account__name">{{ user.name }}</span>{% if is_admin %}<span class="account__admin">admin</span>{% endif %}
+        <form method="post" action="logout"><button type="submit" class="btn btn--sm">Log out</button></form>
+      {% elif discord_enabled %}
+        <a class="btn btn--sm" href="login">Log in with Discord</a>
       {% endif %}
-      <label class="man-mode"><input type="checkbox" id="manualMode"> Enter airports manually (no flight numbers)</label>
-      <div class="dir-block">
-        <h3>Outbound</h3>
-        <div id="outLegs"></div>
-        <button class="btn btn--sm addleg" data-dir="out">+ Add connection</button>
-      </div>
-      <div class="dir-block" id="retBlock" hidden>
-        <h3>Return</h3>
-        <div id="retLegs"></div>
-        <button class="btn btn--sm addleg" data-dir="ret">+ Add connection</button>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn--sm" id="toggleRet">+ Add return</button>
-        <div class="spacer"></div>
-        <button class="btn" id="cancelAdd">Cancel</button>
-        <button class="btn btn--accent" id="submitAdd">Save trip</button>
-      </div>
-      <p class="modal-err" id="addErr"></p>
-    </div>
-    <div id="savedPanel" hidden>
-      <p class="modal-sub">Saved — it's on the board. This browser can edit or remove the trip any time.</p>
-      <label class="saved-label" for="savedLink">Backup manage link</label>
-      <div class="saved-row">
-        <input id="savedLink" readonly>
-        <button class="btn btn--sm" id="copySaved">Copy</button>
-      </div>
-      <p class="who-note">Opening this link in any browser gives it the same edit/remove rights — keep it somewhere if you might clear this browser's data or switch devices.</p>
-      <div class="modal-actions"><div class="spacer"></div><button class="btn btn--accent" id="doneSaved">Done</button></div>
     </div>
   </div>
-</div>
-{% endif %}
 
-<script>
-  window.__APP__ = {
-    user: {% if user %}{ id: {{ user.id|tojson }}, name: {{ user.name|tojson }} }{% else %}null{% endif %},
-    isAdmin: {{ 'true' if is_admin else 'false' }},
-    discordEnabled: {{ 'true' if discord_enabled else 'false' }},
-    gated: {{ 'true' if gated else 'false' }}
-  };
-</script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="static/app.js?v=20261003"></script>
+  <p class="notice" id="authNote" hidden></p>
+  <noscript><p class="notice">The board needs JavaScript to load trips.</p></noscript>
+
+  {% if gated %}
+  <section class="hub-card gate" aria-labelledby="gateTitle">
+    <h2 class="hub-title" id="gateTitle">This board is members-only</h2>
+    {% if discord_enabled %}<p><a class="btn btn--primary" href="login">Log in with Discord</a></p>{% endif %}
+  </section>
+  {% else %}
+  <div class="toolbar">
+    <div class="toolbar__group" role="group" aria-label="View">
+      <button type="button" class="chip" id="viewBoard" aria-pressed="true">Board</button>
+      <button type="button" class="chip" id="viewMap" aria-pressed="false">Map</button>
+    </div>
+    <div class="toolbar__spacer"></div>
+    <button type="button" class="btn btn--primary" id="openAdd">Add a trip</button>
+  </div>
+
+  <div class="filterbar">
+    <p class="filterbar__text" id="filterStatus" role="status">Loading the board.</p>
+    <button type="button" class="btn btn--sm" id="clearFilter" hidden>Clear filter</button>
+  </div>
+  <div class="daychips" id="dayChips" role="group" aria-label="Filter by day" hidden></div>
+
+  <div class="banner" id="staleBanner" hidden>
+    <p><strong>Out of date.</strong> <span id="staleText"></span></p>
+    <button type="button" class="btn btn--sm" id="retryNow">Try again now</button>
+  </div>
+
+  <section class="airborne surface" id="airborne" aria-labelledby="airborneTitle" hidden>
+    <h2 id="airborneTitle">In the air now</h2>
+    <ul class="airborne__list" id="airborneList"></ul>
+  </section>
+
+  <div id="boardPanel" aria-busy="true">
+    <h2 class="sr-only">Trips</h2>
+    <div class="board" id="board">
+      <div class="skeleton" aria-hidden="true">
+        <div class="wptk-section skel-card"><div class="skel-line skel-line--w1"></div><div class="skel-line skel-line--w2"></div><div class="skel-line skel-line--w3"></div></div>
+        <div class="wptk-section skel-card" data-accent="1"><div class="skel-line skel-line--w1"></div><div class="skel-line skel-line--w2"></div><div class="skel-line skel-line--w3"></div></div>
+        <div class="wptk-section skel-card" data-accent="2"><div class="skel-line skel-line--w1"></div><div class="skel-line skel-line--w2"></div><div class="skel-line skel-line--w3"></div></div>
+      </div>
+    </div>
+    <p class="meta__stamp" id="stamp"></p>
+  </div>
+
+  <section class="mappanel surface" id="mapPanel" aria-label="Map of flights" hidden>
+    <div id="map"></div>
+  </section>
+  {% endif %}
+
+</main>
+
+<div class="sr-only" id="liveMsg" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="app-config">{{ {"user": ({"id": user.id, "name": user.name} if user else none), "isAdmin": (is_admin or false), "discordEnabled": (discord_enabled or false), "gated": (gated or false), "basePath": base_path}|tojson }}</script>
+<script type="module" src="static/js/main.js"></script>
 </body>
 </html>

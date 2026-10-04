@@ -1,0 +1,4 @@
+flight_by_number.json   VERBATIM EXCERPT. First element of a real api.market(magicapi) response for GET /flights/Number/CX271/2025-01-12 (LeungYuLap19/SYP-Chatbot jsonTest/flightStatus.json @1a6fc52). Only edit: aircraft.image block removed. (A real response is an ARRAY; the full capture has 3 legs on 3 consecutive days.)
+aircraft_by_reg.json    VERBATIM. Real response for 9V-SMG (Jeffrey-29/air-tracker-flight-analytics air_tracker.ipynb cell output @61b6b00). Absent keys (firstFlightDate, deliveryDate, image, iataType, registrations) are genuinely omitted when null.
+airplaneslive_callsign.json  VERBATIM. Real /v2/callsign/RCH4525 response, Dec 2024 (FrancescoValentini/PROGETTO-CLOUD-M2 Documentazione/DocumentazioneAPI.md @655031c).
+airplaneslive_callsign_ground.synthetic.json  SYNTHETIC-FROM-DOCS: the verbatim record with alt_baro:"ground" per readsb README-json.md; not a captured response.

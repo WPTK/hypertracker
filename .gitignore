@@ -21,3 +21,17 @@ data/*.db-shm
 
 # Tests
 .pytest_cache/
+
+# Tooling / scratch
+.ruff_cache/
+node_modules/
+.mypy_cache/
+.coverage
+htmlcov/
+scratch/
+tmp/
+*.tmp
+# Screenshot temp files; committed screenshots (*.png) stay tracked
+tests/e2e/**/screenshots/*.tmp.png
+test-results/
+playwright-report/

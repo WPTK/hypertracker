@@ -1,0 +1,23 @@
+{
+  "id": 2116546,
+  "reg": "9V-SMG",
+  "active": true,
+  "serial": "62",
+  "hexIcao": "76CDA7",
+  "airlineName": "Singapore Airlines",
+  "iataCodeShort": "359",
+  "icaoCode": "A359",
+  "model": "A359",
+  "modelCode": "350-941",
+  "numSeats": 253,
+  "rolloutDate": "2016-11-17",
+  "registrationDate": "2016-12-06",
+  "typeName": "Airbus A350-900",
+  "numEngines": 2,
+  "engineType": "Jet",
+  "isFreighter": false,
+  "productionLine": "Airbus A350",
+  "ageYears": 9.6,
+  "verified": true,
+  "numRegistrations": 1
+}

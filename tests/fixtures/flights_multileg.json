@@ -1,0 +1,137 @@
+[
+  {
+    "number": "AA 300",
+    "departure": {
+      "airport": {
+        "icao": "KATL",
+        "iata": "ATL",
+        "name": "Atlanta Hartsfield-Jackson",
+        "location": {
+          "lat": 33.6367,
+          "lon": -84.4281
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 15:00Z",
+        "local": "2026-10-10 11:00-04:00"
+      }
+    },
+    "arrival": {
+      "airport": {
+        "icao": "KDEN",
+        "iata": "DEN",
+        "name": "Denver Intl",
+        "location": {
+          "lat": 39.8617,
+          "lon": -104.6731
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 17:50Z",
+        "local": "2026-10-10 11:50-06:00"
+      }
+    },
+    "status": "Expected",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "airline": {
+      "name": "American Airlines",
+      "iata": "AA",
+      "icao": "AAL"
+    },
+    "aircraft": {
+      "reg": "N123DN",
+      "model": "Boeing 737-900"
+    }
+  },
+  {
+    "number": "AA 300",
+    "departure": {
+      "airport": {
+        "icao": "KJAX",
+        "iata": "JAX",
+        "name": "Jacksonville Intl",
+        "location": {
+          "lat": 30.4941,
+          "lon": -81.6879
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 12:00Z",
+        "local": "2026-10-10 08:00-04:00"
+      }
+    },
+    "arrival": {
+      "airport": {
+        "icao": "KATL",
+        "iata": "ATL",
+        "name": "Atlanta Hartsfield-Jackson",
+        "location": {
+          "lat": 33.6367,
+          "lon": -84.4281
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 13:25Z",
+        "local": "2026-10-10 09:25-04:00"
+      }
+    },
+    "status": "Expected",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "airline": {
+      "name": "American Airlines",
+      "iata": "AA",
+      "icao": "AAL"
+    },
+    "aircraft": {
+      "reg": "N123DN",
+      "model": "Boeing 737-900"
+    }
+  },
+  {
+    "number": "UA 6300",
+    "departure": {
+      "airport": {
+        "icao": "KJAX",
+        "iata": "JAX",
+        "name": "Jacksonville Intl",
+        "location": {
+          "lat": 30.4941,
+          "lon": -81.6879
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 12:00Z",
+        "local": "2026-10-10 08:00-04:00"
+      }
+    },
+    "arrival": {
+      "airport": {
+        "icao": "KATL",
+        "iata": "ATL",
+        "name": "Atlanta Hartsfield-Jackson",
+        "location": {
+          "lat": 33.6367,
+          "lon": -84.4281
+        }
+      },
+      "scheduledTime": {
+        "utc": "2026-10-10 13:25Z",
+        "local": "2026-10-10 09:25-04:00"
+      }
+    },
+    "status": "Expected",
+    "codeshareStatus": "IsCodeshared",
+    "isCargo": false,
+    "airline": {
+      "name": "United",
+      "iata": "UA",
+      "icao": "UAL"
+    },
+    "aircraft": {
+      "reg": "N123DN",
+      "model": "Boeing 737-900"
+    }
+  }
+]

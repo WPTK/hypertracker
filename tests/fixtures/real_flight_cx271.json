@@ -1,0 +1,96 @@
+[
+  {
+    "greatCircleDistance": {
+      "meter": 9290300.53,
+      "km": 9290.3,
+      "mile": 5772.73,
+      "nm": 5016.36,
+      "feet": 30479988.61
+    },
+    "departure": {
+      "airport": {
+        "icao": "VHHH",
+        "iata": "HKG",
+        "name": "Hong Kong Chek Lap Kok",
+        "shortName": "Chek Lap Kok",
+        "municipalityName": "Hong Kong",
+        "location": {
+          "lat": 22.3089,
+          "lon": 113.915
+        },
+        "countryCode": "HK",
+        "timeZone": "Asia/Shanghai"
+      },
+      "scheduledTime": {
+        "utc": "2025-01-11 15:20Z",
+        "local": "2025-01-11 23:20+08:00"
+      },
+      "revisedTime": {
+        "utc": "2025-01-11 15:20Z",
+        "local": "2025-01-11 23:20+08:00"
+      },
+      "runwayTime": {
+        "utc": "2025-01-11 15:51Z",
+        "local": "2025-01-11 23:51+08:00"
+      },
+      "terminal": "1",
+      "checkInDesk": "B,C",
+      "gate": "6",
+      "runway": "07L",
+      "quality": [
+        "Basic",
+        "Live"
+      ]
+    },
+    "arrival": {
+      "airport": {
+        "icao": "EHAM",
+        "iata": "AMS",
+        "name": "Amsterdam Schiphol",
+        "shortName": "Schiphol",
+        "municipalityName": "Amsterdam",
+        "location": {
+          "lat": 52.3086,
+          "lon": 4.763889
+        },
+        "countryCode": "NL",
+        "timeZone": "Europe/Amsterdam"
+      },
+      "scheduledTime": {
+        "utc": "2025-01-12 05:35Z",
+        "local": "2025-01-12 06:35+01:00"
+      },
+      "revisedTime": {
+        "utc": "2025-01-12 05:09Z",
+        "local": "2025-01-12 06:09+01:00"
+      },
+      "runwayTime": {
+        "utc": "2025-01-12 05:09Z",
+        "local": "2025-01-12 06:09+01:00"
+      },
+      "terminal": "4",
+      "gate": "G3",
+      "baggageBelt": "20",
+      "quality": [
+        "Basic",
+        "Live"
+      ]
+    },
+    "lastUpdatedUtc": "2025-01-12 05:21Z",
+    "number": "CX 271",
+    "callSign": "CPA271",
+    "status": "Arrived",
+    "codeshareStatus": "IsOperator",
+    "isCargo": false,
+    "aircraft": {
+      "reg": "B-LXD",
+      "modeS": "789216",
+      "model": "Airbus A350"
+    },
+    "airline": {
+      "name": "Cathay Pacific",
+      "iata": "CX",
+      "icao": "CPA"
+    }
+  }
+]
