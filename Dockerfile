@@ -27,5 +27,6 @@ USER 1000:1000
 EXPOSE 8008
 
 # Exactly one worker: live state, rate limits and the poller live in process memory.
-# No --proxy-headers: the app resolves the client address itself via TRUSTED_PROXY.
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008"]
+# --no-proxy-headers: uvicorn must not rewrite the client address from forwarded headers;
+# the app resolves it itself (app/netutil.py, TRUSTED_PROXY) and is the only reader of them.
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008", "--no-proxy-headers"]
