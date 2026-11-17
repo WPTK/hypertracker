@@ -87,17 +87,18 @@ The image is built by GitHub (the `container` workflow) and published as
 
 ### First start
 
-1. Stop the old service so only one copy runs and the port is free (this is the moment the
-   site goes down; a few seconds): `Stop-Service Hypertracker`.
-2. From the repo folder, start the container:
-   `docker compose -f deploy/compose.gilead.yaml pull` then
-   `docker compose -f deploy/compose.gilead.yaml up -d hypertracker`
+1. From the repo folder, pull the image while the old service is still running:
+   `docker compose -f deploy/compose.gilead.yaml pull`
    If `pull` is denied, either set the package to public in the GitHub package settings for
-   `ghcr.io/wptk/hypertracker`, or run `docker login ghcr.io` on Gilead first.
-3. Check it: `docker ps` should show `hypertracker` as `healthy` after about 30 seconds, and
+   `ghcr.io/wptk/hypertracker`, or run `docker login ghcr.io` on Gilead first. The site
+   stays up while you sort that out.
+2. Stop the old service so only one copy runs and the port is free (this is the moment the
+   site goes down; a few seconds): `Stop-Service Hypertracker`.
+3. Start the container: `docker compose -f deploy/compose.gilead.yaml up -d hypertracker`
+4. Check it: `docker ps` should show `hypertracker` as `healthy` after about 30 seconds, and
    https://tracker.adsb.cc should load. The tunnel needs no change; it still points at
    `host.docker.internal:8008`.
-4. Set the old service to Manual (`Set-Service Hypertracker -StartupType Manual`) so it does not start at boot and
+5. Set the old service to Manual (`Set-Service Hypertracker -StartupType Manual`) so it does not start at boot and
    fight for the port.
 
 The container listens on `127.0.0.1:8008` only, so nothing on the network can reach it
@@ -124,8 +125,8 @@ Start-Service Hypertracker
 `down` removes the container (a merely stopped one would come back after a Docker restart,
 because of `restart: always`); it is safe here because this compose project holds only this
 one service. The old copy in `C:\hypertracker` is untouched and
-reads the same data folder. To go back to the container again, stop the service and run the
-First start steps from step 2. To pin an older container build instead, change `latest` in
+reads the same data folder. To go back to the container again, run the First start steps
+from step 2. To pin an older container build instead, change `latest` in
 `deploy/compose.gilead.yaml` to a `sha-xxxxxxx` tag shown on the package page.
 
 ### Notes
