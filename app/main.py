@@ -81,7 +81,19 @@ async def lifespan(_: FastAPI):
         await aerodatabox.aclose()
 
 
-app = FastAPI(title="Hyperfixed Flight Tracker", root_path=config.ROOT_PATH, lifespan=lifespan)
+def docs_urls(dev_mode: bool) -> dict[str, str | None]:
+    """Interactive API docs are served only in DEV_MODE; in production they are 404."""
+    if dev_mode:
+        return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+    return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+
+app = FastAPI(
+    title="Hyperfixed Flight Tracker",
+    root_path=config.ROOT_PATH,
+    lifespan=lifespan,
+    **docs_urls(config.DEV_MODE),
+)
 app.add_middleware(
     SessionMiddleware,
     secret_key=config.SECRET_KEY,

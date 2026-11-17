@@ -1,0 +1,43 @@
+# Hypertracker on Gilead. See "Docker on Gilead" in deploy/README.md.
+# Start:  docker compose -f deploy/compose.gilead.yaml up -d hypertracker
+name: hypertracker
+
+services:
+  hypertracker:
+    image: ghcr.io/wptk/hypertracker:latest
+    container_name: hypertracker
+    restart: always
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Secrets and settings stay in the existing .env; nothing is baked into the image.
+    env_file: "C:/hypertracker/.env"
+    environment:
+      # Pin the database inside the data mount whatever the .env says.
+      DB_PATH: /app/data/flightboard.db
+    ports:
+      - "127.0.0.1:8008:8008"
+    volumes:
+      - type: bind
+        source: "C:/hypertracker/data"
+        target: /app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

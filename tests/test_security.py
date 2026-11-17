@@ -135,6 +135,30 @@ def test_client_ip_cloudflare(monkeypatch):
     assert netutil.client_ip(fake_request("127.0.0.1", x_forwarded_for="9.9.9.9")) == "127.0.0.1"
 
 
+def test_client_ip_cloudflare_from_docker_bridge(monkeypatch):
+    """In the container the proxy peer is a Docker bridge gateway (private range),
+    not loopback. The header is still honoured there and still refused from public peers."""
+    patch(monkeypatch, TRUSTED_PROXY="cloudflare")
+    for peer in ("172.17.0.1", "172.18.0.1", "192.168.65.1"):
+        assert netutil.client_ip(fake_request(peer, cf_connecting_ip="5.6.7.8")) == "5.6.7.8"
+    assert netutil.client_ip(fake_request("93.184.216.34", cf_connecting_ip="5.6.7.8")) == "93.184.216.34"
+
+
+def test_docs_urls_only_in_dev_mode():
+    from app.main import docs_urls
+
+    assert docs_urls(False) == {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    assert docs_urls(True)["docs_url"] == "/docs"
+    assert docs_urls(True)["openapi_url"] == "/openapi.json"
+
+
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
+def test_docs_routes_404_in_production(path):
+    assert config.DEV_MODE is False
+    with TestClient(app) as c:
+        assert c.get(path).status_code == 404
+
+
 def test_client_ip_nginx_rightmost_untrusted_hop(monkeypatch):
     patch(monkeypatch, TRUSTED_PROXY="nginx")
     # client-supplied "1.1.1.1" sits left of the hop nginx appended

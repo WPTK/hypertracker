@@ -74,3 +74,60 @@ journalctl -u hyperfixed-web -f
 systemctl list-timers hyperfixed-airports.timer
 sudo systemd-analyze security hyperfixed-web.service    # hardening score
 ```
+
+## Docker on Gilead
+
+On Gilead the app runs as a container instead of the old Windows service. The container
+runs as an ordinary unprivileged user, cannot write anywhere except the data folder, and
+has no extra Linux powers. Nothing about the database or settings changes: it uses the same
+`C:\hypertracker\.env` and `C:\hypertracker\data\flightboard.db` as before.
+
+The image is built by GitHub (the `container` workflow) and published as
+`ghcr.io/wptk/hypertracker`. Do not build it on Gilead.
+
+### First start
+
+1. Stop the old service so only one copy runs and the port is free (this is the moment the
+   site goes down; a few seconds): `nssm stop hypertracker` (or `Stop-Service hypertracker`).
+2. From the repo folder, start the container:
+   `docker compose -f deploy/compose.gilead.yaml pull` then
+   `docker compose -f deploy/compose.gilead.yaml up -d hypertracker`
+3. Check it: `docker ps` should show `hypertracker` as `healthy` after about 30 seconds, and
+   https://tracker.adsb.cc should load. The tunnel needs no change; it still points at
+   `host.docker.internal:8008`.
+4. Keep the old service set to Manual (not Automatic) so it does not start at boot and
+   fight for the port.
+
+The container listens on `127.0.0.1:8008` only, so nothing on the network can reach it
+except through the tunnel.
+
+### Update
+
+```
+docker compose -f deploy/compose.gilead.yaml pull
+docker compose -f deploy/compose.gilead.yaml up -d hypertracker
+```
+
+Back up `C:\hypertracker\data` first if the release changes the database layout.
+
+### Roll back to the old service
+
+```
+docker compose -f deploy/compose.gilead.yaml stop hypertracker
+nssm start hypertracker
+```
+
+(or `Start-Service hypertracker`). The old copy in `C:\hypertracker` is untouched and
+reads the same data folder. To go back to the container again, stop the service and run the
+First start steps from step 2. To pin an older container build instead, change `latest` in
+`deploy/compose.gilead.yaml` to a `sha-xxxxxxx` tag shown on the package page.
+
+### Notes
+
+- Logs: `docker logs hypertracker` (kept to 3 files of 10 MB).
+- Load or refresh airports inside the container:
+  `docker exec hypertracker python -m scripts.update_airports`.
+- Behind the tunnel the app sees Docker's private address as the peer, and
+  `TRUSTED_PROXY=cloudflare` still takes the visitor address from `CF-Connecting-IP`. It
+  ignores that header from any public address.
+- `/docs`, `/redoc` and `/openapi.json` exist only when `DEV_MODE=true`.
